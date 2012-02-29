@@ -158,6 +158,7 @@ class RCIHandler(BaseHTTPRequestHandler):
                 self.send_response(400) #bad request
 
 def start_server(local_port = 80):
+    print "Starting web server on port %u..." % local_port
     server = HTTPServer(("", local_port), RCIHandler)
     server.serve_forever()
 
@@ -165,7 +166,10 @@ def start_server(local_port = 80):
 #TODO: only start this once!  (Multiple import rci will break this...)
 
 # start HTTP server thread for processing RCI requests
-thread.start_new_thread(start_server, (settings.get("local_port", 80),))
+local_port = settings.get("local_port", 0)
+if local_port != 0:
+    thread.start_new_thread(start_server, (local_port,))
+
 rci_callbacks = lockDict()
 
 import edp

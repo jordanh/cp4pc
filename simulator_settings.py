@@ -33,8 +33,10 @@ settings['baud'] = 115200
 #settings['device_id'] = "00000000-00000000-DEAD01FF-FF00BEEF"
 settings['idigi_server'] = 'developer.idigi.com'
 settings['idigi_port'] = 3197
-settings['local_port'] = 8080
 settings['device_name'] = 'PC Gateway'
+
+# If local_port is set, start a webserver for processing RCI requests locally
+#settings['local_port'] = 8080
 
 # Settings from computer
 #TODO: get these from the local computer
