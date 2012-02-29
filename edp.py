@@ -257,7 +257,7 @@ class EDP:
                 if time.clock() > self.tx_ka:
                     # Server died
                     self._handle_error("Server Died")
-                    return -ETIMEDOUT;
+                    return -ETIMEDOUT
     
                 if time.clock() > self.rx_ka:
                     # Send keepalive msg
@@ -278,7 +278,7 @@ class EDP:
                     if len(self.rxdata) >= 4:
                         # OK, got header (type+length)
                         self.msg_type, self.msg_len = struct.unpack("!hh", self.rxdata[0:4])
-                        self.state = self.EDP_STATE_MSGHDR;
+                        self.state = self.EDP_STATE_MSGHDR
                     else:
                         return -EAGAIN
     
@@ -321,7 +321,7 @@ class EDP:
 
         if EDP_VERBOSE > 2:
             if self.msg_type != EDP_KEEPALIVE:
-                print "%s <-- EDP: got message type=0x%04X len=%u" % (self._get_elapsed(), self.msg_type, len(msg));
+                print "%s <-- EDP: got message type=0x%04X len=%u" % (self._get_elapsed(), self.msg_type, len(msg))
                 print str(["%02X" % ord(x) for x in msg]) + "\t" + msg
 
         if self.msg_type == EDP_PAYLOAD:
@@ -446,7 +446,7 @@ class EDP:
         elif self.msg_type == EDP_SERVER_OVERLOAD:
             if EDP_VERBOSE:
                 print "EDP: server says it's overloaded"
-            self._handle_error();
+            self._handle_error()
         else:
             # Ignore anything unknown.  (This also handles keepalives)
             if EDP_VERBOSE:
