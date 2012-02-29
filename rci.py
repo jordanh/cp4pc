@@ -23,7 +23,10 @@
 import thread
 import time
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-import ElementTree
+try:
+   from xml.etree import ElementTree
+except:
+   import ElementTree
 
 from lock_dict import lockDict
 from query_state import query_state
