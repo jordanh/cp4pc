@@ -1,0 +1,48 @@
+README
+======
+- Require Python 2.5 or later.
+- List PySerial requirement.
+
+ADDP
+====
+- Use actual interface settings.
+- Send error responses (if necessary) for unsupported commands.
+- Consider supporting commands to configure the iDigi server settings via ADDP.
+   - Requires addition of persistent state.
+
+EDP
+===
+- Auto-generate Device ID.  What does iDigi Connector do?
+- Support other methods than HTTP (like the Messaging Facility).
+- Support passwords.
+
+RCI
+===
+T- Edit query_settings and query_state so developer.idigi.com lists useful information for Device Properties.
+T- Dump unsupported RCI commands to stdout during testing so we know what we need to implement.
+- Make improvements to local web server feature.
+T- Disable local web server unless port specified in config.
+
+iDigi
+=====
+- Implement necessary pieces for "XBee Networks" feature of developer.idigi.com to work.
+- Confirm whether we're using https or not.
+   - Need to check certificates?
+
+ZigBee
+======
+T- Make sure remote AT commands (including IR, IS) work.
+M- Get rid of zigbee.py in favor of just xbee.py?
+- Does a gateway always send 6 parameters (e.g., transmit status handler).  Need to fix that.
+
+GUI
+===
+- Evaluate wxPython and PyQt as options.  Which is better for this project?
+
+Mac
+===
+- How do people typically install Python on a Mac?
+
+Release
+=======
+- In addition to source code, use py2exe (Win) and py2app (Mac) to generate standalone applications for people who don't want to install Python.
