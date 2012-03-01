@@ -6,6 +6,7 @@ README
 ADDP
 ====
 - Use actual interface settings.
+   - Maybe http://alastairs-place.net/projects/netifaces/
 - Send error responses (if necessary) for unsupported commands.
 - Consider supporting commands to configure the iDigi server settings via ADDP.
    - Requires addition of persistent state.
@@ -19,9 +20,8 @@ EDP
 RCI
 ===
 T- Edit query_settings and query_state so developer.idigi.com lists useful information for Device Properties.
-T- Dump unsupported RCI commands to stdout during testing so we know what we need to implement.
 - Make improvements to local web server feature.
-T- Disable local web server unless port specified in config.
+- Support iDigi commands to update XBee firmware?
 
 iDigi
 =====
