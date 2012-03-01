@@ -234,6 +234,14 @@ class EDP:
                 if EDP_VERBOSE:
                     print "EDP: My device ID is: %s" % str(self.device_id)
                 
+                try:
+                    settings['my_ipaddress'] = self.sock.getsockname()[0]
+                    if EDP_VERBOSE > 2:
+                        print "EDP: my IP is %s" % settings['my_ipaddress']
+                except Exception, e:
+                    if EDP_VERBOSE:
+                        print "EDP error calling getsockname(): %s" % e
+                
                 # Write the version mesage (Version 2 of MT),
                 # RX interval (16 sec), TX interval (16 sec) and Wait (3).
                 # This won't block, since have empty tx buffer.
