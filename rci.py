@@ -32,6 +32,8 @@ from lock_dict import lockDict
 from query_state import query_state
 from query_setting import query_setting
 from simulator_settings import settings
+# Debug statement
+RCI_VERBOSE = 3 # level 0-3; 1 = errors only, 2 = warnings, 3 = info
 
 __all__ = ['add_rci_callback', 'process_request', 'stop_rci_callback']
 
@@ -89,13 +91,17 @@ def process_request(request):
     try:
         XML_tree = ElementTree.ElementTree()
         XML_tree.parsestring(request)
-    except:
+    except Exception, e:
+        if RCI_VERBOSE:
+            print "RCI: failed to parse %s (%s)" % (request, e)
         # improper XML, return error response
         #TODO: create proper response
         return "<error>XML parsing failed</error>"
 
     rci_request = XML_tree.getroot()
     if rci_request.tag.strip() != "rci_request":
+        if RCI_VERBOSE:
+            print "RCI: rci_request tag missing in %s" % request
         return _wrap_rci_response("<error>XML missing rci_request tag</error>")
     for child in rci_request.getchildren():
         if child.tag.strip() == "do_command":
@@ -107,6 +113,8 @@ def process_request(request):
             # make sure target string registered
             callback = rci_callbacks.get(target_string)
             if callback is None:
+                if RCI_VERBOSE > 1:
+                    print "RCI: ignoring do_command('%s')" % target_string
                 rci_response += """<do_command><error id="2"><hint>%s</hint><desc>Name not registered</desc></error></do_command>""" % target_string
                 continue
             # get payload for do_command                
