@@ -32,6 +32,8 @@ from lock_dict import lockDict
 from query_state import query_state
 from query_setting import query_setting
 from simulator_settings import settings
+import cStringIO
+
 # Debug statement
 RCI_VERBOSE = 3 # level 0-3; 1 = errors only, 2 = warnings, 3 = info
 
@@ -89,8 +91,7 @@ def process_request(request):
     rci_response = ""
     
     try:
-        XML_tree = ElementTree.ElementTree()
-        XML_tree.parsestring(request)
+        XML_tree = ElementTree.parse(cStringIO.StringIO(request))
     except Exception, e:
         if RCI_VERBOSE:
             print "RCI: failed to parse %s (%s)" % (request, e)
