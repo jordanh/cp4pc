@@ -104,7 +104,10 @@ def process_request(request):
             print "RCI: rci_request tag missing in %s" % request
         return _wrap_rci_response("<error>XML missing rci_request tag</error>")
     for child in rci_request.getchildren():
-        if child.tag.strip() == "do_command":
+        command = child.tag.strip()
+        if RCI_VERBOSE > 2:
+            print "RCI: process %s" % command
+        if command == "do_command":
             # get target string
             target_string = child.get("target")
             if target_string is None:
@@ -127,18 +130,15 @@ def process_request(request):
                 rci_response += "<do_command target=\"%s\">" % (target_string)
                 rci_response += callback(xml_payload) + "</do_command>"
             except Exception, e:
+                if RCI_VERBOSE:
+                    print "RCI: do_command(%s) exception (%s)" % (command, e)
                 rci_response += """<do_command><error>Exception while processing do_command</error></do_command>""" # TODO: get correct error
-        elif child.tag.strip() == "query_setting":
-            #query_setting = open('query_setting.xml', 'r')
-            #rci_response = query_setting.read().strip()
-            #query_setting.close()
+        elif command == "query_setting":
             rci_response = query_setting()
-        elif child.tag.strip() == "query_state":
-            #query_state = open('query_state.xml', 'r')
-            #rci_response = query_state.read().strip()
-            #query_state.close()
+        elif command == "query_state":
             rci_response = query_state()
-            
+        elif RCI_VERBOSE > 1:
+            print "RCI: no handler for %s" % command
     return _wrap_rci_response(rci_response)
     
 def _wrap_rci_response(xml):
