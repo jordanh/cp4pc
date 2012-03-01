@@ -33,9 +33,7 @@ from query_state import query_state
 from query_setting import query_setting
 from simulator_settings import settings
 import cStringIO
-
-# Debug statement
-RCI_VERBOSE = 3 # level 0-3; 1 = errors only, 2 = warnings, 3 = info
+import logging
 
 __all__ = ['add_rci_callback', 'process_request', 'stop_rci_callback']
 
@@ -93,21 +91,18 @@ def process_request(request):
     try:
         XML_tree = ElementTree.parse(cStringIO.StringIO(request))
     except Exception, e:
-        if RCI_VERBOSE:
-            print "RCI: failed to parse %s (%s)" % (request, e)
+        logging.error("RCI: failed to parse %s (%s)" % (request, e))
         # improper XML, return error response
         #TODO: create proper response
         return "<error>XML parsing failed</error>"
 
     rci_request = XML_tree.getroot()
     if rci_request.tag.strip() != "rci_request":
-        if RCI_VERBOSE:
-            print "RCI: rci_request tag missing in %s" % request
+        logging.error("RCI: rci_request tag missing in %s" % request)
         return _wrap_rci_response("<error>XML missing rci_request tag</error>")
     for child in rci_request.getchildren():
         command = child.tag.strip()
-        if RCI_VERBOSE > 2:
-            print "RCI: process %s" % command
+        logging.info("RCI: process %s" % command)
         if command == "do_command":
             # get target string
             target_string = child.get("target")
@@ -117,8 +112,7 @@ def process_request(request):
             # make sure target string registered
             callback = rci_callbacks.get(target_string)
             if callback is None:
-                if RCI_VERBOSE > 1:
-                    print "RCI: ignoring do_command('%s')" % target_string
+                logging.warning("RCI: ignoring do_command('%s')" % target_string)
                 rci_response += """<do_command><error id="2"><hint>%s</hint><desc>Name not registered</desc></error></do_command>""" % target_string
                 continue
             # get payload for do_command                
@@ -131,15 +125,14 @@ def process_request(request):
                 rci_response += "<do_command target=\"%s\">" % (target_string)
                 rci_response += callback(xml_payload) + "</do_command>"
             except Exception, e:
-                if RCI_VERBOSE:
-                    print "RCI: do_command(%s) exception (%s)" % (command, e)
+                logging.error("RCI: do_command(%s) exception (%s)" % (command, e))
                 rci_response += """<do_command><error>Exception while processing do_command</error></do_command>""" # TODO: get correct error
         elif command == "query_setting":
             rci_response = query_setting()
         elif command == "query_state":
             rci_response = query_state()
-        elif RCI_VERBOSE > 1:
-            print "RCI: no handler for %s" % command
+        else:
+            logging.warning("RCI: no handler for %s" % command)
     return _wrap_rci_response(rci_response)
     
 def _wrap_rci_response(xml):
@@ -155,6 +148,7 @@ def stop_rci_callback(name):
     del rci_callbacks[name]
     
 class RCIHandler(BaseHTTPRequestHandler):
+    #TODO: Could add get handler to support a locally hosted webpage
     def do_POST(self):
         try:
             if self.path != "/UE/rci":
@@ -167,16 +161,15 @@ class RCIHandler(BaseHTTPRequestHandler):
                 self.send_response(400) #bad request
 
 def start_server(local_port = 80):
-    print "Starting web server on port %u..." % local_port
+    logging.info("Starting web server on port %u..." % local_port)
     server = HTTPServer(("", local_port), RCIHandler)
     server.serve_forever()
 
 
-#TODO: only start this once!  (Multiple import rci will break this...)
-
+#NOTE: code will only on first import - Python only imports files once
 # start HTTP server thread for processing RCI requests
 local_port = settings.get("local_port", 0)
-if local_port != 0:
+if local_port:
     thread.start_new_thread(start_server, (local_port,))
 
 rci_callbacks = lockDict()
