@@ -100,7 +100,7 @@ def process_request(request):
     if rci_request.tag.strip() != "rci_request":
         logging.error("RCI: rci_request tag missing in %s" % request)
         return _wrap_rci_response("<error>XML missing rci_request tag</error>")
-    for child in rci_request.getchildren():
+    for child in list(rci_request):
         command = child.tag.strip()
         logging.info("RCI: process %s" % command)
         if command == "do_command":
@@ -117,7 +117,7 @@ def process_request(request):
                 continue
             # get payload for do_command                
             xml_payload = ""
-            for parameter in child.getchildren():
+            for parameter in list(child):
                 xml_payload += ElementTree.tostring(parameter)
             # call callback and append to response XML
             try:
