@@ -118,8 +118,7 @@ def process_request(request):
             # get payload for do_command                
             xml_payload = ""
             for parameter in child.getchildren():
-                parameter_tree = ElementTree.ElementTree(parameter)
-                xml_payload += parameter_tree.writestring()            
+                xml_payload += ElementTree.tostring(parameter)
             # call callback and append to response XML
             try:
                 rci_response += "<do_command target=\"%s\">" % (target_string)
