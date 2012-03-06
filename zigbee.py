@@ -226,11 +226,7 @@ class Local_AT_Data(API_Data):
         self.frame_id = ord(cmd_data[0])
         self.AT_cmd = cmd_data[1:3]
         self.status = ord(cmd_data[3])
-        if len(cmd_data) > 4:
-            # some messages have no value
-            self.value = cmd_data[4:]
-        else:
-            self.value = ""
+        self.value = cmd_data[4:] #NOTE: some messages have no value
         return 0
         
     def export(self):
@@ -262,14 +258,14 @@ class Remote_AT_Data(API_Data):
 
     def extract(self, cmd_data):
         "Extract a remote AT response message from a 0x97 xbee frame cmd_data"
-        if len(cmd_data) < 15: #TODO: make sure this is the right number.
+        if len(cmd_data) < 14: #TODO: make sure this is the right number.
             #Message too small, return error
             return -1
         self.frame_id, source_address_64, source_address_16 = struct.unpack(">BQH", cmd_data[:11])
         self.remote_address = MAC_to_address_string(source_address_64)
         self.AT_cmd = cmd_data[11:13]
         self.status = ord(cmd_data[13])
-        self.value = cmd_data[14:]
+        self.value = cmd_data[14:] #NOTE: some messages have no value
         return 0
         
     def export(self):
@@ -834,7 +830,7 @@ class XBee:
                 #time.sleep(0.01) 
                 if MESH_TRACEBACK:
                     debug_str = ""
-                    if message.API_ID == 0x11:  #TTDO: temporary filter
+                    if message.API_ID == 0x11:  #TODO: temporary filter
                         debug_str = "DEBUG TX: API ID = %s\n" % hex(message.API_ID)
                         #frame ID
                         debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[0:1]]) + "]:"
