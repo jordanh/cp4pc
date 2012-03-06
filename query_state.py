@@ -26,59 +26,58 @@ time.clock() # initialize for uptime
 
 # Zigbee State capability 0x200 required for Digi X-Grid/Open EMS 
 def query_state():
-    # FIXME: this should be the EUI, not device ID.
-    eui = settings['device_id'].replace("-", "")
-    eui = eui[-16:]
-    eui = "%s:%s:%s:%s:%s:%s:%s:%s" % (eui[:2],eui[2:4],eui[4:6],eui[6:8],eui[8:10],eui[10:12], eui[12:14],eui[14:16])
-    return """
-        <query_state>
-          <device_info>
-            <mac>00:00:00:00:00:00</mac>
-            <product>PC Simulator</product>
-            <company>Digi International</company>
-            <boot>99999000</boot>
-            <post>99999001</post>
-            <firmware>99999002</firmware>
-          </device_info>
-          <device_stats>
-            <uptime>%d</uptime>
-            <freemem>1000000000</freemem>
-          </device_stats>
-          <boot_stats>
-            <eth_speed>auto</eth_speed>
-            <eth_duplex>auto</eth_duplex>
-            <dhcp>on</dhcp>
-            <ip>10.40.18.118</ip>
-            <subnet>255.255.255.0</subnet>
-            <gateway>10.40.18.1</gateway>
-            <autoip>on</autoip>
-            <addp>off</addp>
-            <static>on</static>
-          </boot_stats>
-          <wireless_stats>
-            <state>stopped</state>
-            <ssid></ssid>
-            <bsid>00:00:00:00:00:00</bsid>
-            <tx_rate>1</tx_rate>
-            <rx_signal>1</rx_signal>
-          </wireless_stats>
-          <zigbee_state>
-            <gateway_addr>%s!</gateway_addr>
-            <caps>0x36b</caps>
-            <pan_id>0x0000</pan_id>
-            <ext_pan_id>0x0000000000000000</ext_pan_id>
-            <channel>0xd</channel>
-            <net_addr>0x0</net_addr>
-            <association>0x0</association>
-            <firmware_version>0x3119</firmware_version>
-            <hardware_version>0x1941</hardware_version>
-            <children>6</children>
-            <max_payload>128</max_payload>
-            <verify_cert>1</verify_cert>
-            <stack_profile>2</stack_profile>
-          </zigbee_state>
-          <device_registry>
-            <ethernet>on</ethernet>
-          </device_registry>
-        </query_state>
-    """ % (int(time.clock()), eui)
+    try:
+        # FIXME: this should be the EUI, not device ID.
+        eui = settings['device_id'].replace("-", "")
+        eui = eui[-16:]
+        eui = "%s:%s:%s:%s:%s:%s:%s:%s" % (eui[:2],eui[2:4],eui[4:6],eui[6:8],eui[8:10],eui[10:12], eui[12:14],eui[14:16])
+        retval = """
+            <query_state>
+              <device_info>
+                <mac>00:00:00:00:00:00</mac>
+                <product>PC Simulator</product>
+                <company>Digi International</company>
+                <boot>99999000</boot>
+                <post>99999001</post>
+                <firmware>99999002</firmware>
+              </device_info>
+              <device_stats>
+                <uptime>%d</uptime>
+                <freemem>1000000000</freemem>
+              </device_stats>
+              <boot_stats>
+                <eth_speed>auto</eth_speed>
+                <eth_duplex>auto</eth_duplex>
+                <dhcp>on</dhcp>
+                <ip>%s</ip>
+                <subnet>255.255.255.0</subnet>
+                <gateway>10.40.18.1</gateway>
+                <autoip>on</autoip>
+                <addp>off</addp>
+                <static>on</static>
+              </boot_stats>
+              <zigbee_state>
+                <gateway_addr>%s!</gateway_addr>
+                <caps>0x36b</caps>
+                <pan_id>0x0000</pan_id>
+                <ext_pan_id>0x0000000000000000</ext_pan_id>
+                <channel>0xd</channel>
+                <net_addr>0x0</net_addr>
+                <association>0x0</association>
+                <firmware_version>0x3119</firmware_version>
+                <hardware_version>0x1941</hardware_version>
+                <children>6</children>
+                <max_payload>128</max_payload>
+                <verify_cert>1</verify_cert>
+                <stack_profile>2</stack_profile>
+              </zigbee_state>
+              <device_registry>
+                <ethernet>on</ethernet>
+              </device_registry>
+            </query_state>
+        """ % (int(time.clock()), settings.get('my_ipaddress','0.0.0.0'), eui)
+        # print retval
+        return retval
+    except Exception, e:
+        print "query_state: %s" % str(e)
+        return ''
