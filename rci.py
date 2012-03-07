@@ -36,6 +36,7 @@ from query_state import query_state
 from query_setting import query_setting
 from simulator_settings import settings
 import logging
+import rci_zigbee #connect() called at the end of this file.
 
 __all__ = ['add_rci_callback', 'process_request', 'stop_rci_callback']
 
@@ -192,3 +193,6 @@ thread.start_new_thread(edp_obj.run_forever, ())
 import addp
 addp_obj = addp.ADDP()
 thread.start_new_thread(addp_obj.run_forever, ())
+
+# will link rci to zigbee module
+rci_zigbee.connect()
