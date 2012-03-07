@@ -1211,7 +1211,7 @@ class XBee:
         finally:
             _global_lock.release()
     
-    def get_node_list(self, refresh=True):
+    def get_node_list(self, refresh=True, blocking=True):
         "Perform a node discovery (blocking when refresh == True)"
         _global_lock.acquire(True)
         try:
@@ -1222,11 +1222,13 @@ class XBee:
             if refresh:
                 # send request to own neighbor table to start discovery
                 for node in self.node_list:
-                    lqi_aggregator = LQI_aggregator(self.lqi_cluster, node.addr_extended, 0, self._LQI_callback)
-                    start_time = time.clock()
-                    while time.clock() < start_time + 6.625:
-                        self.read_messages()
-                        time.sleep(.1)
+                    LQI_aggregator(self.lqi_cluster, node.addr_extended, 0, self._LQI_callback)
+                start_time = time.clock()
+                while time.clock() < start_time + 6.625:
+                    self.read_messages()
+                    if not blocking:
+                        break
+                    time.sleep(.1)
                                   
             return self.node_list[:]
         finally:
@@ -1331,7 +1333,7 @@ class XBee:
                                 addr_extended  = record.addr_extended,\
                                 addr_short = record.addr_short)
                 self.node_list.append(new_node)
-                new_lqi_aggregator = LQI_aggregator(self.lqi_cluster, new_node.addr_extended, 0, self._LQI_callback)
+                LQI_aggregator(self.lqi_cluster, new_node.addr_extended, 0, self._LQI_callback)
     
     def device_announce_handler(self, record):
         """callback for device announce"""
@@ -1812,7 +1814,7 @@ def open_com_thread():
                 print "Exception while creating serial port:", e
             ran_first_time = True
             time.sleep(10)  #retry opening COM port every ten seconds
-                
+    default_xbee.get_node_list(refresh=True, blocking=False) #kick off discovery of nodes on network            
     print "Serial port for XBee opened successfully"
     
 thread.start_new_thread(open_com_thread, ())
