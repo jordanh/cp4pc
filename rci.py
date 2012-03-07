@@ -24,15 +24,17 @@ import thread
 import time
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 try:
-   from xml.etree import ElementTree
+    from xml.etree import cElementTree as ET
 except:
-   import ElementTree
+    try:
+       from xml.etree import ElementTree as ET
+    except:
+       import ElementTree as ET
 
 from lock_dict import lockDict
 from query_state import query_state
 from query_setting import query_setting
 from simulator_settings import settings
-import cStringIO
 import logging
 
 __all__ = ['add_rci_callback', 'process_request', 'stop_rci_callback']
@@ -97,7 +99,7 @@ def process_request(request):
     rci_response = ""
     
     try:
-        XML_tree = ElementTree.parse(cStringIO.StringIO(request))
+        XML_tree = ET.ElementTree(ET.fromstring(request))
     except Exception, e:
         logger.error("failed to parse %s (%s)" % (request, e))
         # improper XML, return error response
@@ -127,11 +129,10 @@ def process_request(request):
             # get payload for do_command                
             xml_payload = ""
             for parameter in list(child):
-                xml_payload += ElementTree.tostring(parameter)
+                xml_payload += ET.tostring(parameter)
             # call callback and append to response XML
             try:
-                rci_response += "<do_command target=\"%s\">" % (target_string)
-                rci_response += callback(xml_payload) + "</do_command>"
+                rci_response += "<do_command target=\"%s\">%s</do_command>" % (target_string, callback(xml_payload))
             except Exception, e:
                 logger.error("do_command(%s) exception (%s)" % (command, e))
                 rci_response += """<do_command><error>Exception while processing do_command</error></do_command>""" # TODO: get correct error
