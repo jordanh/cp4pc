@@ -37,6 +37,14 @@ import logging
 
 __all__ = ['add_rci_callback', 'process_request', 'stop_rci_callback']
 
+# set up logger
+logger = logging.getLogger("RCI")
+stderr_handler = logging.StreamHandler()
+stderr_formatter = logging.Formatter("[%(asctime)s] %(levelname)s RCI: %(message)s", "%a %b %d %H:%M:%S %Y")
+stderr_handler.setFormatter(stderr_formatter)
+logger.addHandler(stderr_handler)
+logger.setLevel(logging.INFO) #TODO: set this based on simulator settings!
+
 
 def add_rci_callback(name, callback):
     """
@@ -91,30 +99,31 @@ def process_request(request):
     try:
         XML_tree = ElementTree.parse(cStringIO.StringIO(request))
     except Exception, e:
-        logging.error("RCI: failed to parse %s (%s)" % (request, e))
+        logger.error("failed to parse %s (%s)" % (request, e))
         # improper XML, return error response
         #TODO: create proper response
         return "<error>XML parsing failed</error>"
 
     rci_request = XML_tree.getroot()
     if rci_request.tag.strip() != "rci_request":
-        logging.error("RCI: rci_request tag missing in %s" % request)
+        logger.error("rci_request tag missing in %s" % request)
         return _wrap_rci_response("<error>XML missing rci_request tag</error>")
     for child in list(rci_request):
         command = child.tag.strip()
-        logging.info("RCI: process %s" % command)
         if command == "do_command":
             # get target string
             target_string = child.get("target")
             if target_string is None:
+                logger.warning("do_command missing target")
                 rci_response += "<do_command><error>RCI missing target</error></do_command>"
                 continue
             # make sure target string registered
             callback = rci_callbacks.get(target_string)
             if callback is None:
-                logging.warning("RCI: ignoring do_command('%s')" % target_string)
+                logger.warning("do_command('%s'): name not registered" % target_string)
                 rci_response += """<do_command><error id="2"><hint>%s</hint><desc>Name not registered</desc></error></do_command>""" % target_string
                 continue
+            logger.info("processing do_command('%s')" % target_string)
             # get payload for do_command                
             xml_payload = ""
             for parameter in list(child):
@@ -124,14 +133,16 @@ def process_request(request):
                 rci_response += "<do_command target=\"%s\">" % (target_string)
                 rci_response += callback(xml_payload) + "</do_command>"
             except Exception, e:
-                logging.error("RCI: do_command(%s) exception (%s)" % (command, e))
+                logger.error("do_command(%s) exception (%s)" % (command, e))
                 rci_response += """<do_command><error>Exception while processing do_command</error></do_command>""" # TODO: get correct error
         elif command == "query_setting":
+            logger.info("processing %s" % command)
             rci_response = query_setting()
         elif command == "query_state":
+            logger.info("processing %s" % command)
             rci_response = query_state()
         else:
-            logging.warning("RCI: no handler for %s" % command)
+            logger.warning("no handler for %s" % command)
     return _wrap_rci_response(rci_response)
     
 def _wrap_rci_response(xml):
@@ -160,7 +171,7 @@ class RCIHandler(BaseHTTPRequestHandler):
                 self.send_response(400) #bad request
 
 def start_server(local_port = 80):
-    logging.info("Starting web server on port %u..." % local_port)
+    logger.info("Starting web server on port %u..." % local_port)
     server = HTTPServer(("", local_port), RCIHandler)
     server.serve_forever()
 
