@@ -23,101 +23,57 @@
 # socket.inet_ntoa and .inet_aton exist for converting packed 4-byte struct in_addr to/from dotted quad
 # socket.getsockname() to get the local address; returns a (host, port) pair
 
+# import ElementTree, there are a couple of different places to find it
+try:
+    from xml.etree import cElementTree as ET
+except:
+    try:
+       from xml.etree import ElementTree as ET
+    except:
+       import ElementTree as ET
 
 from simulator_settings import settings
 
 def query_setting():
-    try:
-        return """
-            <query_setting>
-              <boot>
-                <eth_speed>auto</eth_speed>
-                <eth_duplex>auto</eth_duplex>
-                <dhcp>on</dhcp>
-                <ip>%s</ip>
-                <subnet>255.255.255.0</subnet>
-                <gateway>10.40.18.1</gateway>
-                <autoip>on</autoip>
-                <addp>off</addp>
-                <static>on</static>
-              </boot>
-              <system>
-                <contact>Michael.Sutherland@digi.com
-                </contact>
-                <location>Davis, CA, U.S.A.</location>
-                <description>%s</description>
-              </system>
-              <devicesecurity>
-                <identityVerificationForm>simple</identityVerificationForm>
-                <discoveryCodingScheme>noneNone</discoveryCodingScheme>
-                <messagePassingScheme>noneNone</messagePassingScheme>
-                <clientKeySize>128Bit</clientKeySize>
-              </devicesecurity>
-              <mgmtglobal>
-                <deviceid>0x%s
-                </deviceid>
-                <rciCompressionEnabled>off</rciCompressionEnabled>
-                <tcpNodelayEnabled>off</tcpNodelayEnabled>
-                <tcpKeepalivesEnabled>off</tcpKeepalivesEnabled>
-                <connIdleTimeout>0</connIdleTimeout>
-                <dataServiceEnabled>on</dataServiceEnabled>
-                <dataServicePort>80</dataServicePort>
-                <dataServiceSecurePort>443</dataServiceSecurePort>
-                <dataServiceUrl>/ws/device</dataServiceUrl>
-              </mgmtglobal>
-              <mgmtnetwork>
-                <networkType>modemPPP</networkType>
-                <connectMethod>mt</connectMethod>
-                <mtRxKeepAlive>16</mtRxKeepAlive>
-                <mtTxKeepAlive>16</mtTxKeepAlive>
-                <mtWaitCount>3</mtWaitCount>
-                <sslValidatePeer>off</sslValidatePeer>
-              </mgmtnetwork>
-              <mgmtnetwork index="2">
-                <networkType>ethernet</networkType>
-                <connectMethod>0x00A0 len=1164 mt</connectMethod>
-                <mtRxKeepAlive>16</mtRxKeepAlive>
-                <mtTxKeepAlive>16</mtTxKeepAlive>
-                <mtWaitCount>3</mtWaitCount>
-                <sslValidatePeer>off</sslValidatePeer>
-              </mgmtnetwork>
-              <mgmtnetwork index="3">
-                <networkType>802.11</networkType>
-                <connectMethod>mt</connectMethod>
-                <mtRxKeepAlive>16</mtRxKeepAlive>
-                <mtTxKeepAlive>16</mtTxKeepAlive>
-                <mtWaitCount>3</mtWaitCount>
-                <sslValidatePeer>off</sslValidatePeer>
-              </mgmtnetwork>
-              <mgmtconnection>
-                <connectionType>client</connectionType>
-                <connectionEnabled>on</connectionEnabled>
-                <serverArray>
-                  <serverAddress>en://%s
-                  </serverAddress>
-                  <securitySettingsIndex>0</securitySettingsIndex>
-                </serverArray>
-              </mgmtconnection>
-              <mgmtconnection index="2">
-                <connectionType>timed</connectionType>
-                <connectionEnabled>off</connectionEnabled>
-              </mgmtconnection>
-                <mgmtconnection index="3">
-                  <connectionType>serverInitiated</connectionType>
-                  <connectionEnabled>off</connectionEnabled>
-                </mgmtconnection>
-                <interface name="eth0">
-                  <eth_speed>auto</eth_speed>
-                  <eth_duplex>auto</eth_duplex>
-                  <dhcp>on</dhcp>
-                  <ip>10.40.18.118</ip>
-                  <subnet>255.255.255.0</subnet>
-                  <gateway>10.40.18.1</gateway>
-                  <autoip>on</autoip>
-                  <addp>off</addp>
-                  <static>on</static>
-                </interface>
-            </query_setting>
-        """ % (settings.get('my_ipaddress','0.0.0.0'), settings["device_name"], settings["device_id"].replace("-", ""), settings['idigi_server'])
-    except Exception, e:
-        print "query_setting: %s" % str(e)
+    root = ET.Element('query_setting')
+    # boot
+    boot = ET.SubElement(root, 'boot')
+    ET.SubElement(boot, 'IP').text = settings.get('my_ipaddress','0.0.0.0')
+    ET.SubElement(boot, 'addp').text = 'on'
+    # system
+    system = ET.SubElement(root, 'system')
+    ET.SubElement(system, 'contact').text = settings.get('contact','')
+    ET.SubElement(system, 'Location').text = settings.get('location','')
+    ET.SubElement(system, 'description').text = settings.get('description','')
+    # global management
+    mgmtglobal = ET.SubElement(root, 'mgmtglobal')
+    ET.SubElement(mgmtglobal, 'deviceId').text = '0x%s' % settings["device_id"].replace("-", "")
+    ET.SubElement(mgmtglobal, 'rciCompressionEnabled').text = 'off'
+    ET.SubElement(mgmtglobal, 'tcpNodelayEnabled').text = 'off'
+    ET.SubElement(mgmtglobal, 'tcpKeepalivesEnabled').text = 'on'
+    ET.SubElement(mgmtglobal, 'connIdleTimeout').text = '0'
+    ET.SubElement(mgmtglobal, 'dataServiceEnabled').text = 'on'
+    ET.SubElement(mgmtglobal, 'dataServicePort').text = '80'
+    ET.SubElement(mgmtglobal, 'dataServiceSecurePort').text = '443'
+    ET.SubElement(mgmtglobal, 'dataServiceUrl').text = '/ws/device'
+    # ADDP
+    addp = ET.SubElement(root, 'addp')
+    ET.SubElement(addp, 'state').text = 'on'
+    ET.SubElement(addp, 'port').text = '2362'
+    ET.SubElement(addp, 'desc').text = 'ADDP Service'
+    ET.SubElement(addp, 'keepalive').text = 'unsupported'
+    ET.SubElement(addp, 'nodelay').text = 'unsupported'
+    ET.SubElement(addp, 'delayed_ack').text = '200'
+    ET.SubElement(addp, 'reduced_buffer').text = 'off'
+    # connection management
+    mgmtconnection = ET.SubElement(root, 'mgmtconnection')
+    ET.SubElement(mgmtconnection, 'connectionType').text = 'client'
+    ET.SubElement(mgmtconnection, 'connectionEnabled').text = 'on'
+    ET.SubElement(mgmtconnection, 'lastKnownAddressUpdateEnabled').text = 'off'
+    ET.SubElement(mgmtconnection, 'clientConnectionReconnectTimeout').text = '300'
+    serverArray = ET.SubElement(mgmtconnection, 'serverArray')
+    ET.SubElement(serverArray, 'serverAddress').text = 'en://'+settings['idigi_server']
+    ET.SubElement(serverArray, 'securitySettingsIndex').text = '0'
+    # network management?
+    return ET.tostring(root)
+

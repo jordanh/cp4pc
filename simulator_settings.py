@@ -26,14 +26,21 @@ settings = {}
 # example and defaulted Settings
 
 # serial port settings for XBee
-#settings['com_port'] = 'COM11'
-settings['baud'] = 115200
+settings['com_port'] = 'COM1' #default to first serial port.
+settings['baud'] = 115200 #should the default be 9600?
 
 # iDigi Settings
-#settings['device_id'] = "00000000-00000000-DEAD01FF-FF00BEEF"
+settings['device_id'] = "00000000-00000000-00000000-00000000" #TODO: figure out how we are going to set this!  MAC address?
 settings['idigi_server'] = 'developer.idigi.com'
 settings['idigi_port'] = 3197
 settings['device_name'] = 'PC Gateway'
+
+# extra descriptions
+settings['product'] = 'PC Gateway' 
+settings['company'] = 'Digi International' 
+#settings['contact'] = 'name@example.com'
+#settings['location'] = 'SomewhereVille, USA'
+#settings['description'] = 'My lovely PC Gateway'
 
 # If local_port is set, start a webserver for processing RCI requests locally
 #settings['local_port'] = 8080

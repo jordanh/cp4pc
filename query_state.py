@@ -18,66 +18,49 @@
 #
 # Digi International Inc. 11001 Bren Road East, Minnetonka, MN 55343
 
-
-import time
+import sys
+import struct
+try:
+    from xml.etree import cElementTree as ET
+except:
+    try:
+       from xml.etree import ElementTree as ET
+    except:
+       import ElementTree as ET
 from simulator_settings import settings
-
-time.clock() # initialize for uptime
 
 # Zigbee State capability 0x200 required for Digi X-Grid/Open EMS 
 def query_state():
-    try:
-        # FIXME: this should be the EUI, not device ID.
-        eui = settings['device_id'].replace("-", "")
-        eui = eui[-16:]
-        eui = "%s:%s:%s:%s:%s:%s:%s:%s" % (eui[:2],eui[2:4],eui[4:6],eui[6:8],eui[8:10],eui[10:12], eui[12:14],eui[14:16])
-        retval = """
-            <query_state>
-              <device_info>
-                <mac>00:00:00:00:00:00</mac>
-                <product>PC Simulator</product>
-                <company>Digi International</company>
-                <boot>99999000</boot>
-                <post>99999001</post>
-                <firmware>99999002</firmware>
-              </device_info>
-              <device_stats>
-                <uptime>%d</uptime>
-                <freemem>1000000000</freemem>
-              </device_stats>
-              <boot_stats>
-                <eth_speed>auto</eth_speed>
-                <eth_duplex>auto</eth_duplex>
-                <dhcp>on</dhcp>
-                <ip>%s</ip>
-                <subnet>255.255.255.0</subnet>
-                <gateway>10.40.18.1</gateway>
-                <autoip>on</autoip>
-                <addp>off</addp>
-                <static>on</static>
-              </boot_stats>
-              <zigbee_state>
-                <gateway_addr>%s!</gateway_addr>
-                <caps>0x36b</caps>
-                <pan_id>0x0000</pan_id>
-                <ext_pan_id>0x0000000000000000</ext_pan_id>
-                <channel>0xd</channel>
-                <net_addr>0x0</net_addr>
-                <association>0x0</association>
-                <firmware_version>0x3119</firmware_version>
-                <hardware_version>0x1941</hardware_version>
-                <children>6</children>
-                <max_payload>128</max_payload>
-                <verify_cert>1</verify_cert>
-                <stack_profile>2</stack_profile>
-              </zigbee_state>
-              <device_registry>
-                <ethernet>on</ethernet>
-              </device_registry>
-            </query_state>
-        """ % (int(time.clock()), settings.get('my_ipaddress','0.0.0.0'), eui)
-        # print retval
-        return retval
-    except Exception, e:
-        print "query_state: %s" % str(e)
-        return ''
+    xbee = sys.modules.get('xbee')
+
+    root = ET.Element('query_state')
+    # device_info
+    device_info = ET.SubElement(root, 'device_info')
+    ET.SubElement(device_info, 'mac').text = '0:0:0:0:0:0' #TODO: get this from the PC or settings file.
+    ET.SubElement(device_info, 'product').text = settings['product']
+    ET.SubElement(device_info, 'company').text = settings['company']
+    #TODO: we could add firmware and other version information here...
+    # boot_stats
+    boot_stats = ET.SubElement(root, 'boot_stats')
+    ET.SubElement(boot_stats, 'ip').text = settings.get('my_ipaddress','0.0.0.0')
+    ET.SubElement(boot_stats, 'addp').text = 'on'
+    # zigbee_state
+    if xbee:   
+        zigbee_state = ET.SubElement(root, 'zigbee_state')
+        ET.SubElement(zigbee_state, 'gateway_addr').text = ':'.join(["%02x" % ord(x) for x in xbee.ddo_get_param(None, 'SH')+xbee.ddo_get_param(None, 'SL')])
+        ET.SubElement(zigbee_state, 'pan_id').text = '0x%04x' % struct.unpack('>H', xbee.ddo_get_param(None, 'OI'))
+        ET.SubElement(zigbee_state, 'ext_pan_id').text = '0x%x' % struct.unpack('>Q', xbee.ddo_get_param(None, 'ID')) # ''.join(["%02x" % ord(x) for x in xbee.ddo_get_param(None, 'ID')])
+        ET.SubElement(zigbee_state, 'channel').text = '0x%x' % ord(xbee.ddo_get_param(None, 'ch'))
+        ET.SubElement(zigbee_state, 'net_addr').text = '0x%04x' % struct.unpack('>H', xbee.ddo_get_param(None, 'MY'))
+        ET.SubElement(zigbee_state, 'association').text = '0x%x' % ord(xbee.ddo_get_param(None, 'AI'))
+        ET.SubElement(zigbee_state, 'firmware_version').text = '0x%04x' % struct.unpack('>H', xbee.ddo_get_param(None, 'VR')) 
+        ET.SubElement(zigbee_state, 'hardware_version').text = '0x%04x' % struct.unpack('>H', xbee.ddo_get_param(None, 'HV'))
+        ET.SubElement(zigbee_state, 'children').text = '%d' % ord(xbee.ddo_get_param(None, 'NC'))
+        ET.SubElement(zigbee_state, 'max_payload').text = '%d' % struct.unpack('>H', xbee.ddo_get_param(None, 'NP'))
+        try:
+            ET.SubElement(zigbee_state, 'verify_cert').text = '%d' % ord(xbee.ddo_get_param(None, 'VC'))
+        except:
+            pass #only valid for SE XBees
+        ET.SubElement(zigbee_state, 'stack_profile').text = '%d' % ord(xbee.ddo_get_param(None, 'ZS'))
+    
+    return ET.tostring(root)
