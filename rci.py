@@ -178,7 +178,7 @@ def start_server(local_port = 80):
     server.serve_forever()
 
 
-#NOTE: code will only on first import - Python only imports files once
+#NOTE: code will only run on first import - Python only imports files once
 # start HTTP server thread for processing RCI requests
 local_port = settings.get("local_port", 0)
 if local_port:
