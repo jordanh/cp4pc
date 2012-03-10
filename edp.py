@@ -178,11 +178,11 @@ class EDP:
         if not wlist:
             self._handle_error("Socket not writable")
             return -EIO
-        logger.info("%s -->: sending message type=0x%04X totlen=%u" % (self._get_elapsed(), msg_type, len(msg)))
+        logger.info(" -->: sending message type=0x%04X totlen=%u" % (msg_type, len(msg))) #TODO: decode type
         logger.debug("%s" % str(["%02X" % ord(x) for x in msg]) + "\t" + msg)
 
         self.sock.send(struct.pack("!HH", msg_type, len(msg)) + msg)
-        self.rx_ka = time.clock() + self.rx_intvl
+        self.rx_ka = time.time() + self.rx_intvl
         return 0
 
     def send_fac(self, fac, msg):
@@ -195,11 +195,11 @@ class EDP:
             self._handle_error("Socket not writable")
             return -EIO
                     
-        logger.info("%s -->: sending facility message fac=0x%04X len=%u" % (self._get_elapsed(), fac, len(msg)))
+        logger.info(" -->: sending facility message fac=0x%04X len=%u" % (fac, len(msg))) #decode fac type
         logger.debug("%s" % str(["%02X" % ord(x) for x in msg]) + "\t" + msg)
         
         self.sock.send(struct.pack("!HHHH", EDP_PAYLOAD, len(msg)+4, 0, fac) + msg)
-        self.rx_ka = time.clock() + self.rx_intvl
+        self.rx_ka = time.time() + self.rx_intvl
         return 0
 
 
@@ -222,7 +222,7 @@ class EDP:
             
             elif self.state == self.EDP_STATE_CLOSED:
                 self.rxdata = ""
-                self.epoch = time.clock()
+                self.epoch = time.time()
                 self.uri = "en://" + self.hostname # TODO: do this nicely...
                 self.red_uri = None
                 self.phase = self.PHASE_INIT
@@ -266,7 +266,7 @@ class EDP:
                 
                 logger.info("Socket connected!")
     
-                self.epoch = time.clock()
+                self.epoch = time.time()
                 self.state = self.EDP_STATE_OPEN
                 
                 logger.info("My device ID is: %s" % str(self.device_id))
@@ -292,17 +292,17 @@ class EDP:
     
                 self.rx_intvl = EDP_KEEPALIVE_INTERVAL
                 self.tx_intvl = EDP_KEEPALIVE_INTERVAL * EDP_KEEPALIVE_WAIT
-                self.rx_ka = time.clock() + self.rx_intvl
-                self.tx_ka = time.clock() + self.tx_intvl
+                self.rx_ka = time.time() + self.rx_intvl
+                self.tx_ka = time.time() + self.tx_intvl
                 
     
             elif self.state == self.EDP_STATE_MSGHDR or self.state == self.EDP_STATE_OPEN:
-                if time.clock() > self.tx_ka:
+                if time.time() > self.tx_ka:
                     # Server died
                     self._handle_error("Server Died")
                     return -ETIMEDOUT
     
-                if time.clock() > self.rx_ka:
+                if time.time() > self.rx_ka:
                     # Send keepalive msg
                     rc = self.send_msg(EDP_KEEPALIVE, "")
                     if rc:
@@ -359,10 +359,10 @@ class EDP:
     def handle_msg(self, msg):
         """self.msg_type is current message type, msg contains the message."""        
         # reset server KA timer
-        self.tx_ka = time.clock() + self.tx_intvl
+        self.tx_ka = time.time() + self.tx_intvl
 
         if self.msg_type != EDP_KEEPALIVE:
-            logger.info("%s <-- : got message type=0x%04X len=%u" % (self._get_elapsed(), self.msg_type, len(msg)))
+            logger.info("<-- : got message type=0x%04X len=%u" % (self.msg_type, len(msg))) #TODO: decode type
             logger.debug("%s" % str(["%02X" % ord(x) for x in msg]) + "\t" + msg)
 
         if self.msg_type == EDP_PAYLOAD:
@@ -535,12 +535,9 @@ class EDP:
 
 
     def _handle_error(self, errmsg = ""):
-        logger.error("%s - unexpected error:%s , aborting connection" % (self._get_elapsed(), errmsg))
+        logger.error("%s , aborting connection" % (errmsg))
         self.close(0)
 
-    def _get_elapsed(self):
-        return "%8.2f" % (time.clock() - self.epoch)
-    
     def _device_id_str(self):
         hex_str = ""
         device_str = ""
