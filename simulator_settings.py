@@ -32,7 +32,7 @@ settings['baud'] = 115200 #should the default be 9600?
 # iDigi Settings
 settings['device_id'] = "00000000-00000000-00000000-00000000" #TODO: figure out how we are going to set this!  MAC address?
 settings['idigi_server'] = 'developer.idigi.com'
-settings['idigi_port'] = 3197
+settings['idigi_certs_file'] = 'idigi-ca-cert-public.crt'
 settings['device_name'] = 'PC Gateway'
 
 # extra descriptions

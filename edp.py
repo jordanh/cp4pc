@@ -4,8 +4,10 @@ import time
 import struct
 import string
 import logging
+import os #for checking path name to SSL certificate
 from errno import *
 
+import ssl_match_hostname
 from simulator_settings import settings
 
 # set up logger
@@ -15,6 +17,12 @@ stderr_formatter = logging.Formatter("[%(asctime)s] %(levelname)s EDP: %(message
 stderr_handler.setFormatter(stderr_formatter)
 logger.addHandler(stderr_handler)
 logger.setLevel(logging.WARNING) #TODO: set this based on simulator settings!
+
+ssl = None
+try:
+    import ssl
+except:
+    logger.warning("SSL module not support, using insecure connection to iDigi.")
 
 
 # Basic, comm layer types.
@@ -90,6 +98,9 @@ class EDP:
     RCI_STATE_RXDONE   = 2   # Server sent disconnect mesage
     RCI_STATE_ERROR    = 10  # Encountered error    
     
+    #EDP port
+    PORT = 3197
+    SSL_PORT = 3199
     
     def __init__(self, rci_process_request=None, device_id=None, host=None, port=None, device_name=None):
         self.sock = None
@@ -219,8 +230,34 @@ class EDP:
             
             elif self.state == self.EDP_STATE_OPENING:
                 try:
+                    validate = False
                     self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    self.sock.connect((self.hostname, self.port))
+                    port = self.PORT
+                    if ssl:
+                        # ssl module supported, wrap socket in SSL socket
+                        idigi_certs_file = settings.get('idigi_certs_file', '')
+                        if not os.path.exists(idigi_certs_file):
+                            # if the file doesn't exist in the cwd, try again in this folder's path.
+                            idigi_certs_file = os.path.join(os.path.dirname(__file__), idigi_certs_file)
+                        if os.path.exists(idigi_certs_file):
+                            # validate iDigi cert
+                            validate = True
+                            self.sock = ssl.wrap_socket(self.sock, cert_reqs=ssl.CERT_REQUIRED, ca_certs=idigi_certs_file)
+                            #TODO: add check for local client cert here and add to SSL call.
+                        else:
+                            logger.warning("iDigi certificate not found, using SSL without certificate validation.")
+                            self.sock = ssl.wrap_socket(self.sock, cert_reqs=ssl.CERT_NONE)
+                            
+                        port = self.SSL_PORT
+                    self.sock.connect((self.hostname, port))
+                    if validate:
+                        # make sure the hostname matches (ssl modeule doesn't do this
+                        try:
+                            ssl_match_hostname.match_hostname(self.sock.getpeercert(), self.hostname)
+                        except Exception, e:
+                            self.sock.close()
+                            raise e
+
                 except Exception, e:
                     logger.error("Error opening socket: %s" % e)
                     return #TODO: error?
