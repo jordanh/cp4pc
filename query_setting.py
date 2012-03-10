@@ -70,7 +70,7 @@ def query_setting():
     ET.SubElement(mgmtconnection, 'connectionType').text = 'client'
     ET.SubElement(mgmtconnection, 'connectionEnabled').text = 'on'
     ET.SubElement(mgmtconnection, 'lastKnownAddressUpdateEnabled').text = 'off'
-    ET.SubElement(mgmtconnection, 'clientConnectionReconnectTimeout').text = '300'
+    ET.SubElement(mgmtconnection, 'clientConnectionReconnectTimeout').text = '60'
     serverArray = ET.SubElement(mgmtconnection, 'serverArray')
     ET.SubElement(serverArray, 'serverAddress').text = 'en://'+settings['idigi_server']
     ET.SubElement(serverArray, 'securitySettingsIndex').text = '0'
