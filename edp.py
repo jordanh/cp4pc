@@ -213,6 +213,7 @@ class EDP:
                 self.uri = self.red_uri
                 self.phase = self.PHASE_INIT
                 self.state = self.EDP_STATE_OPENING
+                self.sock.close()
     
             
             elif self.state == self.EDP_STATE_REBOOT:
@@ -260,6 +261,7 @@ class EDP:
 
                 except Exception, e:
                     logger.error("Error opening socket: %s" % e)
+                    time.sleep(RECONNECT_TIME) # give a few seconds before trying to reconnect...
                     return #TODO: error?
                 
                 logger.info("Socket connected!")
