@@ -24,6 +24,8 @@ try:
 except:
     logger.warning("SSL module not support, using insecure connection to iDigi.")
 
+# frequency to retry connections to iDigi server
+RECONNECT_TIME = 60
 
 # Basic, comm layer types.
 EDP_VERSION         = 0x0004
@@ -47,9 +49,6 @@ EDP_FACILITY_CONN_CONTROL    = 0xFFFF
 EDP_KEEPALIVE_INTERVAL = 16
 EDP_KEEPALIVE_WAIT = 3
 
-# frequency to retry connections to iDigi server
-RECONNECT_TIME = 60
-
 # RCI constants
 RCI_COMMAND_REQ_START   = 0x01
 RCI_COMMAND_REQ_DATA    = 0x02
@@ -69,7 +68,7 @@ RCI_COMPR_ZLIB          = 0x01    # Not actually specified as yet
 
 
 class EDP:
-    """Connection info."""
+    """Encapsulate state related to an EDP (Embrace Device Protocol) client"""
 
     # state information
     EDP_STATE_CLOSED      = 0    # Closed, ready to open
@@ -102,55 +101,50 @@ class EDP:
     PORT = 3197
     SSL_PORT = 3199
     
-    def __init__(self, rci_process_request=None, device_id=None, host=None, port=None, device_name=None):
+    def __init__(self, rci_process_request=None, device_id=None, host=None, device_name=None):
+        # TCP socket
         self.sock = None
-        "TCP socket"
+        # Current low-level state
         self.state = self.EDP_STATE_CLOSED
-        "Current low-level state"
+        # Higher level protocol phase
         self.phase = self.PHASE_INIT
-        "Higher level protocol phase"
+        # Host name
         self.hostname = host or settings['idigi_server']
-        "Host name"
+        # original URI
         self.uri = "en://" + self.hostname
-        "original URI"
+        # Redirected URI (or None for first try)
         self.red_uri = None
-        "Redirected URI (or None for first try)"
-        self.port = port or settings['idigi_port']
-        "Host port (usually 3197)"
+        # Device ID (shows up on iDigi)
         self.device_id = device_id or settings['device_id']
-        "Device ID (shows up on iDigi)"
+        # Device Name for iDigi connection
         self.device_name = device_name or settings['device_name']
-        "Device Name for iDigi connection"
+        # Facility handlers - {facility_id: function pointer}
         self.fac = {}
-        "Facility handlers - {facility_id: function pointer}"
+        # Timeout interval (sec) for foll.
         self.rx_intvl = 0
-        "Timeout interval (ms) for foll."
+        # RX keepalive timer - use this to send KAs to server if no messages sent in the interval.
         self.rx_ka = 0
-        """RX keepalive timer - use this to send KAs to 
-        server if no messages sent in the interval."""
+        # Timeout interval (sec) for foll.
         self.tx_intvl = 0
-        "Timeout interval (ms) for foll."
+        # TX keepalive timer.  This is set to WAIT * TX in the initial negotiation. 
+        # If no KAs received from server in this interval, close the connection."""        
         self.tx_ka = 0
-        """TX keepalive timer.  This is set to 
-        WAIT * TX in the initial negotiation. 
-        If no KAs received from server in this
-        interval, close the connection."""
+        # Received message type
         self.msg_type = 0
-        "Received message type"
+        # Length of the current message
         self.msg_len = 0
-        "Length of the current message"
+        # Buffer to read in current message.
         self.rxdata = ""
-        "Buffer to read in current message."
+        # Session start time (time.time())
         self.epoch = 0
-        "Session start time (time.clock())"
+        # RCI State information for receiving RCI commands
         self.rci_state = self.RCI_STATE_READY
-        "RCI State information for receiving RCI commands"
+        # Total length of RCI message
         self.rci_len = 0
-        "Total length of RCI message"
+        # Buffer to store incoming RCI messages
         self.rci_rxdata = ""
-        "Buffer to store incoming RCI messages"
+        # Function pointer to handle RCI requests
         self.rci_process_request = rci_process_request
-        "Function pointer to handle RCI requests"
     
     def run_forever(self):
         while(1):
