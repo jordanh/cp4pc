@@ -14,12 +14,12 @@
 #_error_ is the status code of the transfer.
 #_errmsg_ is the status message of the transfer.
 
-import cwm_pc
+import cwm
 import httplib
 
 #NOTE: only data and filename do anything currently
 def send_to_idigi(data, filename, collection = None, content_type = None, archive = False, append = False, timeout = None):
-    host, token, path, port, securePort = cwm_pc._get_ws_parms()
+    host, token, path, port, securePort = cwm._get_ws_parms()
     
     webservice = httplib.HTTP(host, port)
     webservice.putrequest("PUT", "%s/%s" % (path, filename))
