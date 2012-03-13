@@ -2,6 +2,13 @@ README
 ======
 - Require Python 2.5 or later.
 - List PySerial requirement.
+- May also have GUI requirement
+
+Configuration
+=============
+- Create a single global settings location (currently simulator_settings.py)
+- Integrate settings with the xig_config.py file?
+- Try to keep location of settings to a minimum (XBee, RCI, and ADDP - only three places?)
 
 ADDP
 ====
@@ -10,38 +17,45 @@ ADDP
 - Send error responses (if necessary) for unsupported commands.
 - Consider supporting commands to configure the iDigi server settings via ADDP.
    - Requires addition of persistent state.
+- Use global settings for device ID and such
+- Support configuration commands?
 
 EDP
 ===
-- Auto-generate Device ID.  What does iDigi Connector do?
-- Support other methods than HTTP (like the Messaging Facility).
+- Auto-generate Device ID.  Use the MAC address if we can.
+- Support other push methods than HTTP PUT (like the Messaging Facility).
 - Support passwords.
+- Merge in changes from Spectrum (support for vendor IDs and such)
+- Change to using a thread instead of a state machine with tick?
 
 RCI
 ===
-T- Edit query_settings and query_state so developer.idigi.com lists useful information for Device Properties.
+- Edit query_settings and query_state so developer.idigi.com lists useful information for Device Properties.
+- Merge in Spectrum code that supports query descriptors
 - Make improvements to local web server feature.
-- Support iDigi commands to update XBee firmware?
-
-iDigi
-=====
-- Implement necessary pieces for "XBee Networks" feature of developer.idigi.com to work.
-- Confirm whether we're using https or not.
-   - Need to check certificates?
+- Fully support the do_command target "zigbee"?
+- Support iDigi commands to update XBee firmware? (Probably not)
 
 ZigBee
 ======
-T- Make sure remote AT commands (including IR, IS) work.
-M- Get rid of zigbee.py in favor of just xbee.py?
+- Get rid of zigbee.py in favor of just xbee.py?
 - Does a gateway always send 6 parameters (e.g., transmit status handler).  Need to fix that.
 
 GUI
 ===
 - Evaluate wxPython and PyQt as options.  Which is better for this project?
+- Connection tab with various settings
+- logs tab
+- extra tabs for other stuff
 
 Mac
 ===
 - How do people typically install Python on a Mac?
+- test
+
+Linux
+=====
+-test
 
 Release
 =======
