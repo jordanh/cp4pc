@@ -16,7 +16,7 @@ stderr_handler = logging.StreamHandler()
 stderr_formatter = logging.Formatter("[%(asctime)s] %(levelname)s EDP: %(message)s", "%a %b %d %H:%M:%S %Y")
 stderr_handler.setFormatter(stderr_formatter)
 logger.addHandler(stderr_handler)
-logger.setLevel(logging.WARNING) #TODO: set this based on simulator settings!
+logger.setLevel(logging.INFO) #TODO: set this based on simulator settings!
 
 ssl = None
 try:
@@ -172,8 +172,8 @@ class EDP:
         if not wlist:
             self._handle_error("Socket not writable")
             return -EIO
-        logger.info(" -->: sending message type=0x%04X totlen=%u" % (msg_type, len(msg))) #TODO: decode type
-        logger.debug("%s" % str(["%02X" % ord(x) for x in msg]) + "\t" + msg)
+        logger.debug("sending message type=0x%04X totlen=%u" % (msg_type, len(msg))) #TODO: decode type
+        #logger.debug("%s" % str(["%02X" % ord(x) for x in msg]) + "\t" + msg)
 
         self.sock.send(struct.pack("!HH", msg_type, len(msg)) + msg)
         self.rx_ka = time.time() + self.rx_intvl
@@ -189,8 +189,8 @@ class EDP:
             self._handle_error("Socket not writable")
             return -EIO
                     
-        logger.info(" -->: sending facility message fac=0x%04X len=%u" % (fac, len(msg))) #decode fac type
-        logger.debug("%s" % str(["%02X" % ord(x) for x in msg]) + "\t" + msg)
+        logger.debug("sending facility message fac=0x%04X len=%u" % (fac, len(msg))) #decode fac type
+        #logger.debug("%s" % str(["%02X" % ord(x) for x in msg]) + "\t" + msg)
         
         self.sock.send(struct.pack("!HHHH", EDP_PAYLOAD, len(msg)+4, 0, fac) + msg)
         self.rx_ka = time.time() + self.rx_intvl
@@ -203,7 +203,7 @@ class EDP:
         ready to re-open with new URI)."""
         try:
             if self.state == self.EDP_STATE_REDIRECTING:
-                logger.info("Redirecting to %ls" % self.red_uri)
+                logger.debug("Redirecting to %ls" % self.red_uri)
                 self.uri = self.red_uri
                 self.phase = self.PHASE_INIT
                 self.state = self.EDP_STATE_OPENING
@@ -258,12 +258,12 @@ class EDP:
                     time.sleep(RECONNECT_TIME) # give a few seconds before trying to reconnect...
                     return #TODO: error?
                 
-                logger.info("Socket connected!")
+                logger.debug("Socket connected!")
     
                 self.epoch = time.time()
                 self.state = self.EDP_STATE_OPEN
                 
-                logger.info("My device ID is: %s" % str(self.device_id))
+                logger.info("my device ID is: %s" % str(self.device_id))
                 
                 try:
                     settings['my_ipaddress'] = self.sock.getsockname()[0]
@@ -356,8 +356,8 @@ class EDP:
         self.tx_ka = time.time() + self.tx_intvl
 
         if self.msg_type != EDP_KEEPALIVE:
-            logger.info("<-- : got message type=0x%04X len=%u" % (self.msg_type, len(msg))) #TODO: decode type
-            logger.debug("%s" % str(["%02X" % ord(x) for x in msg]) + "\t" + msg)
+            logger.debug("received message type=0x%04X len=%u" % (self.msg_type, len(msg))) #TODO: decode type
+            #logger.debug("%s" % str(["%02X" % ord(x) for x in msg]) + "\t" + msg)
 
         if self.msg_type == EDP_PAYLOAD:
             if self.phase == self.PHASE_WAIT_VERS_OK:
@@ -458,7 +458,7 @@ class EDP:
                 else:
                     handler = self.fac.get(fac)
                     if handler is None:
-                        logger.error("got unhandled facility code 0x%04X" % fac)
+                        logger.warning("got unhandled facility code 0x%04X" % fac)
                     else:
                         handler(msg[4:])
                 
@@ -476,7 +476,7 @@ class EDP:
         else:
             # Ignore anything unknown.  (This also handles keepalives)
             if self.msg_type != EDP_KEEPALIVE:
-                logger.info("unexpected message type 0x%04X" % self.msg_type)
+                logger.warning("unexpected message type 0x%04X" % self.msg_type)
 
         return 0
 
@@ -486,7 +486,7 @@ class EDP:
         self.rci_state = self.RCI_STATE_ERROR        
 
     def handle_rci(self, rci_msg):
-        logger.info("Received RCI message")
+        logger.debug("Received RCI message")
         opcode = ord(rci_msg[0])
         
         if opcode == RCI_COMMAND_REQ_START:
