@@ -1,10 +1,10 @@
 """Filler for compiling cwm_data.py"""
 
-from device_constants import *
+from simulator_settings import settings
 
 def _get_ws_parms():
-    host = HOST
-    device = DEVICE_ID
+    host = settings["idigi_server"]
+    device = settings["device_id"]
     # find a better place for this
     token = 'cwm_ds'
     path =  '/ws/device'
