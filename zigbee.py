@@ -175,7 +175,8 @@ class ZB_Data(API_Data):
             # use the device's EUI address
             address_string = MAC_to_address_string(source_address_64)            
         # convert source address to proper string format, create address tuple
-        self.source_address = (address_string, source_endpoint, profile_id, cluster_id, options)
+        # NOTE: 6th parameter is only used for TX Status - always set to zero.
+        self.source_address = (address_string, source_endpoint, profile_id, cluster_id, options, 0)
         self.destination_address = ("", destination_endpoint, profile_id, cluster_id)
         return 0
         
@@ -1777,10 +1778,8 @@ original_getaddrinfo = socket.getaddrinfo
 def getaddrinfo(host, port, family=0, socktype=0, proto=0, flags=0):
     import re
     
-    af_xb_re = re.compile("(\\[([0-9a-f]{2}:){7}[0-9a-f]{2}\\])|" \
-                          "(([0-9a-f]{2}:){7}[0-9a-f]{2})|" \
-                          "(\\[[0-9a-f]{4}\\])|" \
-                          "([0-9a-f]{4})!", re.IGNORECASE)
+    af_xb_re = re.compile("(\\[?([0-9a-f]{2}:){7}[0-9a-f]{2}\\]?!)|" \
+                          "(\\[?[0-9a-f]{4}\\]?!)", re.IGNORECASE)
 
 
     if af_xb_re.match(host) is not None:
@@ -1807,7 +1806,10 @@ def open_com_thread():
     global ran_first_time
     while not com_port_opened:
         try:
-            default_xbee.serial = serial.Serial(simulator_settings.settings["com_port"], simulator_settings.settings["baud"], rtscts = 1)
+            xbee_serial_port = serial.Serial(simulator_settings.settings["com_port"], simulator_settings.settings["baud"], rtscts = 1)
+            time.sleep(.25) # give a little time to let the XBee empty it's serial buffers
+            xbee_serial_port.flushInput() #get rid of anything the XBee had stored up
+            default_xbee.serial = xbee_serial_port
             com_port_opened = True  #set globals
             ran_first_time = True
         except Exception, e:
