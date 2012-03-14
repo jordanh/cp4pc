@@ -21,13 +21,12 @@
 # This file implements an ADDP client in Python.
 
 import socket
+import select
 import struct
 import time
 import logging
 import threading
 
-import string
-import binascii
 from simulator_settings import settings
 
 # set up logger
@@ -102,16 +101,6 @@ ADDP_FAILURE = 0xFF
 ANY = '0.0.0.0'                               # Bind to all interfaces
 MCAST_ADDR = "224.0.5.128"
 MCAST_PORT = 2362
-#ADDR_PORT = 1181
-
-def mac_from_device_id(device_id):
-    # device_id should be a string of the format: xxxxxxxx-xxxxxxxx-xxxxxxxx-xxxxxxxx
-    # we want the last 12 hex digits
-    hex_string = ""
-    for ch in device_id:
-        if ch in string.hexdigits:
-            hex_string += ch
-    return binascii.a2b_hex(hex_string[-16:-10] + hex_string[-6:])
 
 class ADDP_Frame:
     def __init__(self, cmd = ADDP_CMD_NULL, payload = ""):
@@ -138,36 +127,42 @@ class ADDP(threading.Thread):
     
     def __init__(self):
         threading.Thread.__init__(self)
-        # create multicast socket to listen for ADDP requests
-        self.input_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        self.input_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.input_sock.bind((ANY, MCAST_PORT))
-        self.input_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 255)
-        self.input_sock.setsockopt(socket.IPPROTO_IP, 
-                                   socket.IP_ADD_MEMBERSHIP, 
-                                   socket.inet_aton(MCAST_ADDR) + socket.inet_aton(ANY))
-        
-        self.output_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)        
-        self.mac = mac_from_device_id(settings.get("device_id", "00000000-00000000-00000000-00000000"))
-        
+        # create multicast sockets to listen for ADDP requests
+        self.socks = []
+        for family, socktype, proto, canonname, sockaddr in socket.getaddrinfo('', None, socket.AF_INET, socket.SOCK_DGRAM, 0, socket.AI_PASSIVE):
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind((sockaddr[0], MCAST_PORT))
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(MCAST_ADDR) + socket.inet_aton(ANY))
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 255)
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1) #turn on loopback
+            self.socks.append(sock)
+        self.mac = struct.pack("!Q", settings["MAC"])[2:]
     
     def run(self):
         while 1:
             try:
-                message, address = self.input_sock.recvfrom(8092)
+                rlist = select.select(self.socks, [], [])[0] # listen for incoming messages
+                message, address = rlist[0].recvfrom(4096) #don't expect larger ADDP packets than this...
                 logger.debug("Received message from: ", address)
                 #print ["%02X"%ord(x) for x in message]
                 
                 # extract the header
                 frame = ADDP_Frame()
                 frame.extract(message)
-        
+                
+                #TODO: local IP should be remembered from init - and stored as IP object.
+                local_ip = 0
+                for num in (int(x, 10) for x in rlist[0].getsockname()[0].split('.')):
+                    local_ip = local_ip * 0x100 + num
+                local_mac = self.mac #TODO: look this up
+                
                 response = None
                 # parse the rest of the message based on the command type
                 if frame.cmd == ADDP_CMD_CONF_REQ:
-                    response = self.addp_conf_req(frame)
+                    response = self.addp_conf_req(frame, local_ip, local_mac)
                 elif frame.cmd == ADDP_CMD_SET_EDP:
-                    response = self.addp_set_edp(frame)
+                    response = self.addp_set_edp(frame, local_ip, local_mac)
                 elif frame.cmd == ADDP_CMD_REBOOT:
                     # TODO: add support for reboot?
                     logger.warning("Ignoring received to reboot")
@@ -178,16 +173,16 @@ class ADDP(threading.Thread):
                 if response:
                     logger.debug("Sending response to: " + str(address))
                     #print ["%02X" % ord(x) for x in response.export()]
-                    self.output_sock.sendto(response.export(), address)
+                    rlist[0].sendto(response.export(), address)
                 
             except Exception, e:
                 logger.error("Exception: %s"%e)
 
-    def addp_conf_req(self, frame):
+    def addp_conf_req(self, frame, local_ip, local_mac):
         addp_ver = 0x0100 # ADDPv1, may be overwritten in command 
         mac_addr = frame.payload[:6]
         # check if mac_addr matches ours or is equal to broadcast MAC
-        if mac_addr != "\xff\xff\xff\xff\xff\xff" and mac_addr != self.mac:
+        if mac_addr != "\xff\xff\xff\xff\xff\xff" and mac_addr != local_mac:
             logger.debug("Message has wrong address.")
             return None
         index = 6
@@ -207,16 +202,17 @@ class ADDP(threading.Thread):
         
         # add MAC address
         response.payload += struct.pack(">BB", ADDP_OP_MAC, 6)
-        response.payload +=self.mac
+        response.payload += self.mac
         # add IP address, submask, and gateway IP
-        response.payload += struct.pack(">BBI", ADDP_OP_IPADDR, 4, 0x0A281276)
-        response.payload += struct.pack(">BBI", ADDP_OP_SUBMASK, 4, 0xFFFFFF00)
-        response.payload += struct.pack(">BBI", ADDP_OP_GATEWAY, 4, 0x0A281201)
+        response.payload += struct.pack(">BBI", ADDP_OP_IPADDR, 4, local_ip)
+        #TODO: add more parameters to response (Python netifaces module would work well for this).
+        #response.payload += struct.pack(">BBI", ADDP_OP_SUBMASK, 4, 0x00000000)
+        #response.payload += struct.pack(">BBI", ADDP_OP_GATEWAY, 4, 0x00000000)
         # add DNS servers
-        response.payload += struct.pack(">BBI", ADDP_OP_DNS, 4, 0x0A28121A)
-        response.payload += struct.pack(">BBI", ADDP_OP_DNS, 4, 0x0A28121C)
+        #response.payload += struct.pack(">BBI", ADDP_OP_DNS, 4, 0x00000000)
+        #response.payload += struct.pack(">BBI", ADDP_OP_DNS, 4, 0x00000000)
         # add DHCP settings (DHCP server or 0)
-        response.payload += struct.pack(">BBI", ADDP_OP_DHCP, 4, 0x0A281240)
+        #response.payload += struct.pack(">BBI", ADDP_OP_DHCP, 4, 0x00000000)
         # add device name
         device_name = settings.get('device_name', '')
         response.payload += struct.pack(">BB", ADDP_OP_NAME, len(device_name))
@@ -236,14 +232,14 @@ class ADDP(threading.Thread):
         
         return response
     
-    def addp_set_edp(self, frame):
+    def addp_set_edp(self, frame, local_ip, local_mac):
         edp_enabled, edp_length = struct.unpack(">BB", frame.payload[:2])
         edp_url = frame.payload[2:edp_length+2] 
         logger.warning("Ignoring request to set EDP URL = " + edp_url)
         mac_addr = frame.payload[edp_length+2:edp_length+8]
         
         # check if mac_addr matches ours or is equal to broadcast MAC
-        if mac_addr != "\xff\xff\xff\xff\xff\xff" and mac_addr != self.mac:
+        if mac_addr != "\xff\xff\xff\xff\xff\xff" and mac_addr != local_mac:
             logger.debug("Message has wrong address.")
             return None
         
@@ -251,7 +247,7 @@ class ADDP(threading.Thread):
         response = ADDP_Frame(ADDP_CMD_EDP_REPLY)
         # add MAC address
         response.payload += struct.pack(">BB", ADDP_OP_MAC, 6)
-        response.payload += self.mac
+        response.payload += local_mac
         # add result of success
         response.payload += struct.pack(">BBB", ADDP_OP_RESULT, 1, ADDP_SUCCESS)    
         # add success message?
