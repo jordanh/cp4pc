@@ -24,6 +24,8 @@ import socket
 import struct
 import time
 import logging
+import threading
+
 import string
 import binascii
 from simulator_settings import settings
@@ -132,9 +134,10 @@ class ADDP_Frame:
         return buf
 
 
-class ADDP:
+class ADDP(threading.Thread):
     
     def __init__(self):
+        threading.Thread.__init__(self)
         # create multicast socket to listen for ADDP requests
         self.input_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         self.input_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -148,7 +151,7 @@ class ADDP:
         self.mac = mac_from_device_id(settings.get("device_id", "00000000-00000000-00000000-00000000"))
         
     
-    def run_forever(self):
+    def run(self):
         while 1:
             try:
                 message, address = self.input_sock.recvfrom(8092)

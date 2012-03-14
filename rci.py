@@ -192,7 +192,7 @@ thread.start_new_thread(edp_obj.run_forever, ())
 
 import addp
 addp_obj = addp.ADDP()
-thread.start_new_thread(addp_obj.run_forever, ())
+addp_obj.start()
 
 # will link rci to zigbee module
 rci_zigbee.connect()
