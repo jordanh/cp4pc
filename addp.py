@@ -29,7 +29,6 @@ from simulator_settings import settings
 
 ADDP_VERBOSE = 0 # set to 1 for debug output
 
-ADDP_HWNAME = "PC Simulator"
 ADDP_COOKIE = 0x44494749        # 'D', 'I', 'G', 'I'
 ADDP_VERSION = 0x0200
 
