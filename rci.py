@@ -27,9 +27,9 @@ try:
     from xml.etree import cElementTree as ET
 except:
     try:
-       from xml.etree import ElementTree as ET
+        from xml.etree import ElementTree as ET
     except:
-       import ElementTree as ET
+        import ElementTree as ET
 
 from lock_dict import lockDict
 from query_state import query_state
