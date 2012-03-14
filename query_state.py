@@ -42,7 +42,7 @@ def query_state():
     #TODO: we could add firmware and other version information here...
     # boot_stats
     boot_stats = ET.SubElement(root, 'boot_stats')
-    ET.SubElement(boot_stats, 'ip').text = settings.get('my_ipaddress','0.0.0.0')
+    ET.SubElement(boot_stats, 'ip').text = settings.get('ipaddress','0.0.0.0')
     ET.SubElement(boot_stats, 'addp').text = 'on'
     # zigbee_state
     if xbee:   

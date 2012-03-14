@@ -266,8 +266,8 @@ class EDP:
                 logger.info("my device ID is: %s" % str(self.device_id))
                 
                 try:
-                    settings['my_ipaddress'] = self.sock.getsockname()[0]
-                    logger.info("my IP is %s" % settings['my_ipaddress'])
+                    settings['ip_address'] = self.sock.getsockname()[0]
+                    logger.info("my IP is %s" % settings['ip_address'])
                 except Exception, e:
                     logger.error("error calling getsockname(): %s" % e)
                 

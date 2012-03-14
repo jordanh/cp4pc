@@ -38,7 +38,7 @@ def query_setting():
     root = ET.Element('query_setting')
     # boot
     boot = ET.SubElement(root, 'boot')
-    ET.SubElement(boot, 'IP').text = settings.get('my_ipaddress','0.0.0.0')
+    ET.SubElement(boot, 'IP').text = settings.get('ipaddress','0.0.0.0')
     ET.SubElement(boot, 'addp').text = 'on'
     # system
     system = ET.SubElement(root, 'system')
