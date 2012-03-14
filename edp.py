@@ -117,7 +117,7 @@ class EDP:
         # Device ID (shows up on iDigi)
         self.device_id = device_id or settings['device_id']
         # Device Name for iDigi connection
-        self.device_name = device_name or settings['device_name']
+        self.device_name = device_name or settings['device_type']
         # Facility handlers - {facility_id: function pointer}
         self.fac = {}
         # Timeout interval (sec) for foll.

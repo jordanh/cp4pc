@@ -39,11 +39,12 @@ settings['device_id'] = "00000000-00000000-%06XFF-FF%06X" % ((settings.get('MAC'
                                                               settings.get('MAC', 0x000000000000) & 0x0000000FFFFFF)
 settings['idigi_server'] = 'developer.idigi.com'
 settings['idigi_certs_file'] = 'idigi-ca-cert-public.crt'
-settings['device_name'] = 'PC Gateway'
+settings['device_type'] = 'PC Gateway'
 
 # extra descriptions
 settings['product'] = 'PC Gateway' 
 settings['company'] = 'Digi International' 
+#settings['device_name'] = '' # user friendly name for the device
 #settings['contact'] = 'name@example.com'
 #settings['location'] = 'SomewhereVille, USA'
 #settings['description'] = 'My lovely PC Gateway'

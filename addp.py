@@ -210,12 +210,13 @@ class ADDP:
         # add DHCP settings (DHCP server or 0)
         response.payload += struct.pack(">BBI", ADDP_OP_DHCP, 4, 0x0A281240)
         # add device name
-        name = settings.get("device_name", "Digi SE Gateway")
-        response.payload += struct.pack(">BB", ADDP_OP_NAME, len(name))
-        response.payload += name
+        device_name = settings.get('device_name', '')
+        response.payload += struct.pack(">BB", ADDP_OP_NAME, len(device_name))
+        response.payload += device_name
         # add hardware name
-        response.payload += struct.pack(">BB", ADDP_OP_HWNAME, len(ADDP_HWNAME))
-        response.payload += ADDP_HWNAME
+        device_type = settings.get('device_type')
+        response.payload += struct.pack(">BB", ADDP_OP_HWNAME, len(device_type))
+        response.payload += device_type
         
         if addp_ver == 0x0100:        
             # add version
