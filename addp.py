@@ -35,7 +35,7 @@ stderr_handler = logging.StreamHandler()
 stderr_formatter = logging.Formatter("[%(asctime)s] %(levelname)s ADDP: %(message)s", "%a %b %d %H:%M:%S %Y")
 stderr_handler.setFormatter(stderr_formatter)
 logger.addHandler(stderr_handler)
-logger.setLevel(logging.INFO) #TODO: set this based on simulator settings!
+logger.setLevel(logging.INFO)
 
 ADDP_COOKIE = 0x44494749        # 'D', 'I', 'G', 'I'
 ADDP_VERSION = 0x0200
@@ -128,21 +128,40 @@ class ADDP(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
         # create multicast sockets to listen for ADDP requests
-        self.socks = []
-        for family, socktype, proto, canonname, sockaddr in socket.getaddrinfo('', None, socket.AF_INET, socket.SOCK_DGRAM, 0, socket.AI_PASSIVE):
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            sock.bind((sockaddr[0], MCAST_PORT))
-            sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(MCAST_ADDR) + socket.inet_aton(ANY))
-            sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 255)
-            sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1) #turn on loopback
-            self.socks.append(sock)
+        self.socks = {} # dict of {socket: ip}
+        self.setup_socks()
         self.mac = struct.pack("!Q", settings["MAC"])[2:]
     
+    def setup_socks(self):
+        # populate list of sockets
+        ip_list = [] #use this to remove sockets that are no longer active.
+        for interface_tuple in socket.getaddrinfo('', None, socket.AF_INET, socket.SOCK_DGRAM, 0, socket.AI_PASSIVE): # family, socktype, proto, canonname, sockaddr
+            ip_address = interface_tuple[4][0]
+            ip_list.append(ip_address)
+            if ip_address not in self.socks.values():
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                sock.bind((ip_address, MCAST_PORT))
+                sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(MCAST_ADDR) + socket.inet_aton(ANY))
+                sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 255)
+                sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1) #turn on loopback
+                self.socks[sock] = ip_address
+        # remove sockets that are no longer valid
+        for ip in self.socks.values():
+            if ip not in ip_list:
+                self.socks.remove(ip)
+
     def run(self):
         while 1:
             try:
-                rlist = select.select(self.socks, [], [])[0] # listen for incoming messages
+                rlist = select.select(self.socks.keys(), [], [], 5)[0] # listen for incoming messages
+                
+                # check for new interface
+                self.setup_socks()
+                
+                if not rlist:
+                    continue # go back to waiting for messages
+                
                 message, address = rlist[0].recvfrom(4096) #don't expect larger ADDP packets than this...
                 logger.debug("Received message from: ", address)
                 #print ["%02X"%ord(x) for x in message]
@@ -151,11 +170,11 @@ class ADDP(threading.Thread):
                 frame = ADDP_Frame()
                 frame.extract(message)
                 
-                #TODO: local IP should be remembered from init - and stored as IP object.
+                # get IP from self.socks and convert to integer
                 local_ip = 0
-                for num in (int(x, 10) for x in rlist[0].getsockname()[0].split('.')):
+                for num in (int(x, 10) for x in self.socks[rlist[0]].split('.')):
                     local_ip = local_ip * 0x100 + num
-                local_mac = self.mac #TODO: look this up
+                local_mac = self.mac #NOTE: MAC will not match interface (may update in the future).
                 
                 response = None
                 # parse the rest of the message based on the command type
@@ -164,7 +183,6 @@ class ADDP(threading.Thread):
                 elif frame.cmd == ADDP_CMD_SET_EDP:
                     response = self.addp_set_edp(frame, address, local_ip, local_mac)
                 elif frame.cmd == ADDP_CMD_REBOOT:
-                    # TODO: add support for reboot?
                     logger.warning("Ignoring received to reboot")
                     pass
                 else:
@@ -206,7 +224,7 @@ class ADDP(threading.Thread):
         response.payload += self.mac
         # add IP address, submask, and gateway IP
         response.payload += struct.pack(">BBI", ADDP_OP_IPADDR, 4, local_ip)
-        #TODO: add more parameters to response (Python netifaces module would work well for this).
+        #NOTE: add more parameters to response (Python netifaces module would work well for this).
         #response.payload += struct.pack(">BBI", ADDP_OP_SUBMASK, 4, 0x00000000)
         #response.payload += struct.pack(">BBI", ADDP_OP_GATEWAY, 4, 0x00000000)
         # add DNS servers
