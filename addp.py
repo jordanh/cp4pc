@@ -160,9 +160,9 @@ class ADDP(threading.Thread):
                 response = None
                 # parse the rest of the message based on the command type
                 if frame.cmd == ADDP_CMD_CONF_REQ:
-                    response = self.addp_conf_req(frame, local_ip, local_mac)
+                    response = self.addp_conf_req(frame, address, local_ip, local_mac)
                 elif frame.cmd == ADDP_CMD_SET_EDP:
-                    response = self.addp_set_edp(frame, local_ip, local_mac)
+                    response = self.addp_set_edp(frame, address, local_ip, local_mac)
                 elif frame.cmd == ADDP_CMD_REBOOT:
                     # TODO: add support for reboot?
                     logger.warning("Ignoring received to reboot")
@@ -178,7 +178,7 @@ class ADDP(threading.Thread):
             except Exception, e:
                 logger.error("Exception: %s"%e)
 
-    def addp_conf_req(self, frame, local_ip, local_mac):
+    def addp_conf_req(self, frame, address, local_ip, local_mac):
         addp_ver = 0x0100 # ADDPv1, may be overwritten in command 
         mac_addr = frame.payload[:6]
         # check if mac_addr matches ours or is equal to broadcast MAC
@@ -186,6 +186,7 @@ class ADDP(threading.Thread):
             logger.debug("Message has wrong address.")
             return None
         index = 6
+        logger.info("Received 'Configuration' request from: %s" % str(address))
         # pull out any OP commands in frame
         while len(frame.payload) > index + 2:
             op_code, length = struct.unpack(">BB", frame.payload[index, index + 2])
@@ -232,7 +233,7 @@ class ADDP(threading.Thread):
         
         return response
     
-    def addp_set_edp(self, frame, local_ip, local_mac):
+    def addp_set_edp(self, frame, address, local_ip, local_mac):
         edp_enabled, edp_length = struct.unpack(">BB", frame.payload[:2])
         edp_url = frame.payload[2:edp_length+2] 
         logger.warning("Ignoring request to set EDP URL = " + edp_url)
@@ -243,6 +244,7 @@ class ADDP(threading.Thread):
             logger.debug("Message has wrong address.")
             return None
         
+        logger.info("Received 'Set EDP' request from: %s" % str(address))        
         # Create response
         response = ADDP_Frame(ADDP_CMD_EDP_REPLY)
         # add MAC address
