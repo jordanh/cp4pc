@@ -222,8 +222,7 @@ class ADDP:
             # add version
             # get the time of when the program was started
             (year, mon, mday, hour, min, sec, wday, yday, isdst) = time.gmtime(time.time() - time.clock())
-            # TODO: get version from Version.py
-            version = "Version %s %d/%02d/%d" % ("1.3.0", mon, mday, year)
+            version = "Version %s %d/%02d/%d" % (settings.get('version', '0.0.0'), mon, mday, year)
             response.payload += struct.pack(">BB", ADDP_OP_FEPREV, len(version))
             response.payload += version
         

@@ -29,6 +29,9 @@ settings = {}
 # Settings from computer
 settings['MAC'] = uuid.getnode() # get a hardware mac from PC to use as a MAC address
 
+# Program settings
+settings['version'] = "0.0.0" #I'd recommend keeping this format
+
 # serial port settings for XBee
 settings['com_port'] = 'COM1' #default to first serial port.
 settings['baud'] = 115200 #should the default be 9600?
