@@ -7,7 +7,6 @@ import logging
 import os #for checking path name to SSL certificate
 from errno import *
 
-import ssl_match_hostname
 from simulator_settings import settings
 
 # set up logger
@@ -21,6 +20,7 @@ logger.setLevel(logging.INFO) #TODO: set this based on simulator settings!
 ssl = None
 try:
     import ssl
+    import ssl_match_hostname #only needed if SSL module exists
 except:
     logger.warning("SSL module not support, using insecure connection to iDigi.")
 
