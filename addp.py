@@ -23,11 +23,18 @@
 import socket
 import struct
 import time
+import logging
 import string
 import binascii
 from simulator_settings import settings
 
-ADDP_VERBOSE = 0 # set to 1 for debug output
+# set up logger
+logger = logging.getLogger("ADDP")
+stderr_handler = logging.StreamHandler()
+stderr_formatter = logging.Formatter("[%(asctime)s] %(levelname)s ADDP: %(message)s", "%a %b %d %H:%M:%S %Y")
+stderr_handler.setFormatter(stderr_formatter)
+logger.addHandler(stderr_handler)
+logger.setLevel(logging.INFO) #TODO: set this based on simulator settings!
 
 ADDP_COOKIE = 0x44494749        # 'D', 'I', 'G', 'I'
 ADDP_VERSION = 0x0200
@@ -145,9 +152,9 @@ class ADDP:
         while 1:
             try:
                 message, address = self.input_sock.recvfrom(8092)
-                if ADDP_VERBOSE:
-                    print "Got data from", address
-                    print ["%02X"%ord(x) for x in message]
+                logger.debug("Received message from: ", address)
+                #print ["%02X"%ord(x) for x in message]
+                
                 # extract the header
                 frame = ADDP_Frame()
                 frame.extract(message)
@@ -160,27 +167,26 @@ class ADDP:
                     response = self.addp_set_edp(frame)
                 elif frame.cmd == ADDP_CMD_REBOOT:
                     # TODO: add support for reboot?
-                    if ADDP_VERBOSE:
-                        "Received Reboot command - ignoring"
+                    logger.warning("Ignoring received to reboot")
                     pass
                 else:
                     raise Exception("Unknown frame cmd id=0x%04X" % frame.cmd)
                 
                 if response:
-                    if ADDP_VERBOSE:
-                        print "Sending response to: " + str(address)
-                        print ["%02X" % ord(x) for x in response.export()]
+                    logger.debug("Sending response to: " + str(address))
+                    #print ["%02X" % ord(x) for x in response.export()]
                     self.output_sock.sendto(response.export(), address)
                 
-            except:
-                pass        
+            except Exception, e:
+                logger.error("Exception: %s"%e)
 
     def addp_conf_req(self, frame):
         addp_ver = 0x0100 # ADDPv1, may be overwritten in command 
         mac_addr = frame.payload[:6]
         # check if mac_addr matches ours or is equal to broadcast MAC
         if mac_addr != "\xff\xff\xff\xff\xff\xff" and mac_addr != self.mac:
-            raise Exception("Message is not for us.")
+            logger.debug("Message has wrong address.")
+            return None
         index = 6
         # pull out any OP commands in frame
         while len(frame.payload) > index + 2:
@@ -230,13 +236,12 @@ class ADDP:
     def addp_set_edp(self, frame):
         edp_enabled, edp_length = struct.unpack(">BB", frame.payload[:2])
         edp_url = frame.payload[2:edp_length+2] 
-        print "EDP URL = " + edp_url
+        logger.warning("Ignoring request to set EDP URL = " + edp_url)
         mac_addr = frame.payload[edp_length+2:edp_length+8]
         
         # check if mac_addr matches ours or is equal to broadcast MAC
         if mac_addr != "\xff\xff\xff\xff\xff\xff" and mac_addr != self.mac:
-            if ADDP_VERBOSE:
-                print "Message is not for us."
+            logger.debug("Message has wrong address.")
             return None
         
         # Create response
