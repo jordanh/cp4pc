@@ -110,20 +110,20 @@ class ADDP_Frame:
         self.cmd = cmd
         self.payload = payload
         
-    def extract(self, buffer):
-        cookie, self.cmd, length = struct.unpack(">IHH", buffer[:8])
-        self.payload = buffer[8:]
+    def extract(self, buf):
+        cookie, self.cmd, length = struct.unpack(">IHH", buf[:8])
+        self.payload = buf[8:]
         # check cookie to make sure it matches "DIGI"
         if cookie != ADDP_COOKIE:
             raise Exception("Cookie didn't match, ignore message.")
         # make sure length is correct
-        if length != len(buffer) - 8: # 8 bytes in header
+        if length != len(buf) - 8: # 8 bytes in header
             raise Exception("Message length doesn't match.")
         
     def export(self):
-        buffer = struct.pack(">IHH", ADDP_COOKIE, self.cmd, len(self.payload))
-        buffer += self.payload
-        return buffer
+        buf = struct.pack(">IHH", ADDP_COOKIE, self.cmd, len(self.payload))
+        buf += self.payload
+        return buf
 
 
 class ADDP:
