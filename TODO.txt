@@ -9,20 +9,17 @@ Configuration
 - Create a single global settings location (currently simulator_settings.py)
 - Integrate settings with the xig_config.py file?
 - Try to keep location of settings to a minimum (XBee, RCI, and ADDP - only three places?)
+- Store settings in JSON file (including MAC address and device ID).
 
 ADDP
 ====
-- Use actual interface settings.
-   - Maybe http://alastairs-place.net/projects/netifaces/
 - Send error responses (if necessary) for unsupported commands.
 - Consider supporting commands to configure the iDigi server settings via ADDP.
    - Requires addition of persistent state.
-- Use global settings for device ID and such
 - Support configuration commands?
 
 EDP
 ===
-- Auto-generate Device ID.  Use the MAC address if we can.
 - Support other push methods than HTTP PUT (like the Messaging Facility).
 - Support passwords.
 - Merge in changes from Spectrum (support for vendor IDs and such)
@@ -39,7 +36,6 @@ RCI
 ZigBee
 ======
 - Get rid of zigbee.py in favor of just xbee.py?
-- Does a gateway always send 6 parameters (e.g., transmit status handler).  Need to fix that.
 
 GUI
 ===
