@@ -46,7 +46,7 @@ stderr_handler = logging.StreamHandler()
 stderr_formatter = logging.Formatter("[%(asctime)s] %(levelname)s RCI: %(message)s", "%a %b %d %H:%M:%S %Y")
 stderr_handler.setFormatter(stderr_formatter)
 logger.addHandler(stderr_handler)
-logger.setLevel(logging.INFO) #TODO: set this based on simulator settings!
+logger.setLevel(logging.INFO)
 
 
 def add_rci_callback(name, callback):
