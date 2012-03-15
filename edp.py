@@ -101,7 +101,7 @@ class EDP:
     PORT = 3197
     SSL_PORT = 3199
     
-    def __init__(self, rci_process_request=None, device_id=None, host=None, device_name=None):
+    def __init__(self, device_id, device_type, host, mac, rci_process_request=None, vendor_id=None, idigi_certs_file=''):
         # TCP socket
         self.sock = None
         # Current low-level state
@@ -109,15 +109,15 @@ class EDP:
         # Higher level protocol phase
         self.phase = self.PHASE_INIT
         # Host name
-        self.hostname = host or settings['idigi_server']
+        self.hostname = host
         # original URI
         self.uri = "en://" + self.hostname
         # Redirected URI (or None for first try)
         self.red_uri = None
         # Device ID (shows up on iDigi)
-        self.device_id = device_id or settings['device_id']
-        # Device Name for iDigi connection
-        self.device_name = device_name or settings['device_type']
+        self.device_id = device_id
+        # Device Type for iDigi connection
+        self.device_type = device_type
         # Facility handlers - {facility_id: function pointer}
         self.fac = {}
         # Timeout interval (sec) for foll.
@@ -145,6 +145,14 @@ class EDP:
         self.rci_rxdata = ""
         # Function pointer to handle RCI requests
         self.rci_process_request = rci_process_request
+        # Mac address as binary packed data (48bits)
+        self.mac_bytes = struct.pack("!Q", mac)[-6:]
+        # vendor_id is the id of the device vendor.  One can be generated
+        # in iDigi by going to My Account -> Vendor Information.  It should
+        # be given as an integer value
+        self.vendor_id = vendor_id
+        # location of iDigi server certificate (for SSL connections)
+        self.idigi_certs_file = idigi_certs_file
     
     def run_forever(self):
         while(1):
@@ -230,15 +238,14 @@ class EDP:
                     port = self.PORT
                     if ssl:
                         # ssl module supported, wrap socket in SSL socket
-                        idigi_certs_file = settings.get('idigi_certs_file', '')
-                        if not os.path.exists(idigi_certs_file):
+                        if not os.path.exists(self.idigi_certs_file):
                             # if the file doesn't exist in the cwd, try again in this folder's path.
-                            idigi_certs_file = os.path.join(os.path.dirname(__file__), idigi_certs_file)
-                        if os.path.exists(idigi_certs_file):
+                            self.idigi_certs_file = os.path.join(os.path.dirname(__file__), self.idigi_certs_file)
+                        if os.path.exists(self.idigi_certs_file):
                             # validate iDigi cert
                             validate = True
-                            self.sock = ssl.wrap_socket(self.sock, cert_reqs=ssl.CERT_REQUIRED, ca_certs=idigi_certs_file)
-                            #TODO: add check for local client cert here and add to SSL call.
+                            self.sock = ssl.wrap_socket(self.sock, cert_reqs=ssl.CERT_REQUIRED, ca_certs=self.idigi_certs_file)
+                            #NOTE: add check for local client cert here and add to SSL call.
                         else:
                             logger.warning("iDigi certificate not found, using SSL without certificate validation.")
                             self.sock = ssl.wrap_socket(self.sock, cert_reqs=ssl.CERT_NONE)
@@ -389,9 +396,16 @@ class EDP:
                     # so proceed to discovery...
                     self.phase = self.PHASE_DISCOVERY
                     payload = "\x00" # Security layer payload
+                    
+                    if self.vendor_id:
+                        # Send Vendor ID (needs to be done before type)
+                        payload = "\x06"
+                        payload += struct.pack("!I", self.vendor_id)
+                        self.send_msg(EDP_PAYLOAD, payload)
+                    
                     payload += "\x04" # Device type discovery message
-                    payload += struct.pack("!H", len(self.device_name))
-                    payload += self.device_name
+                    payload += struct.pack("!H", len(self.device_type))
+                    payload += self.device_type
                     self.send_msg(EDP_PAYLOAD, payload)
 
                     # Initialization: send a few odd messages
@@ -409,7 +423,7 @@ class EDP:
                     # append IP
                     IP_list = [int(num) for num in socket.gethostbyname(socket.gethostname()).split(".")]
                     payload += struct.pack("!BBBBB", IP_list[0], IP_list[1], IP_list[2], IP_list[3], 0x01)
-                    payload += struct.pack("!Q", settings['MAC'])[2:] # 6 bytes, big endian
+                    payload += self.mac_bytes
                     self.send_fac(EDP_FACILITY_CONN_CONTROL, payload)
                     
                     # Announce RCI compression.

@@ -187,7 +187,7 @@ if local_port:
 rci_callbacks = lockDict()
 
 import edp
-edp_obj = edp.EDP(process_request)
+edp_obj = edp.EDP(device_id=settings['device_id'], device_type=settings['device_type'], host=settings['idigi_server'], mac=settings['MAC'], rci_process_request=process_request, vendor_id=settings.get('vendor_id', None), idigi_certs_file=settings.get('idigi_certs_file', ''))
 thread.start_new_thread(edp_obj.run_forever, ())
 
 import addp
