@@ -15,7 +15,7 @@ stderr_handler = logging.StreamHandler()
 stderr_formatter = logging.Formatter("[%(asctime)s] %(levelname)s EDP: %(message)s", "%a %b %d %H:%M:%S %Y")
 stderr_handler.setFormatter(stderr_formatter)
 logger.addHandler(stderr_handler)
-logger.setLevel(logging.INFO) #TODO: set this based on simulator settings!
+logger.setLevel(logging.INFO)
 
 ssl = None
 try:
@@ -217,7 +217,7 @@ class EDP:
             elif self.state == self.EDP_STATE_CLOSED:
                 self.rxdata = ""
                 self.epoch = time.time()
-                self.uri = "en://" + self.hostname # TODO: do this nicely...
+                self.uri = "en://" + self.hostname
                 self.red_uri = None
                 self.phase = self.PHASE_INIT
                 self.state = self.EDP_STATE_OPENING
@@ -256,7 +256,7 @@ class EDP:
                 except Exception, e:
                     logger.error("Error opening socket: %s" % e)
                     time.sleep(RECONNECT_TIME) # give a few seconds before trying to reconnect...
-                    return #TODO: error?
+                    return
                 
                 logger.debug("Socket connected!")
     
