@@ -43,6 +43,7 @@ settings['device_id'] = "00000000-00000000-%06XFF-FF%06X" % ((settings.get('MAC'
 settings['idigi_server'] = 'developer.idigi.com'
 settings['idigi_certs_file'] = 'idigi-ca-cert-public.crt'
 settings['device_type'] = 'PC Gateway'
+#settings['vendor_id'] = 0x1234 #can set vendor ID in iDigi
 
 # extra descriptions
 settings['product'] = 'PC Gateway' 
