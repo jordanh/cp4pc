@@ -130,7 +130,7 @@ class ADDP(threading.Thread):
         # create multicast sockets to listen for ADDP requests
         self.socks = {} # dict of {socket: ip}
         self.setup_socks()
-        self.mac = struct.pack("!Q", settings["MAC"])[2:]
+        self.mac = struct.pack("!Q", settings['mac'])[2:]
     
     def setup_socks(self):
         # populate list of sockets

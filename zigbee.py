@@ -51,9 +51,7 @@ import string
 import time
 import socket
 import select
-import traceback
 from threading import RLock
-import rci_zigbee #connect() called at the end of this file.
 
 MESH_TRACEBACK = False
 "Set this to true to enable printing of all ZigBee traffic"
@@ -1823,6 +1821,3 @@ def open_com_thread():
 thread.start_new_thread(open_com_thread, ())
 while not ran_first_time:
     time.sleep(0.1) #simple busy wait for first init attempt to complete; should not take very long; admittedly kludgey
-
-# will link rci to zigbee module
-#rci_zigbee.connect()

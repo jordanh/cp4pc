@@ -27,7 +27,7 @@ settings = {}
 # example and defaulted Settings
 
 # Settings from computer
-settings['MAC'] = uuid.getnode() # get a hardware mac from PC to use as a MAC address
+settings['mac'] = uuid.getnode() # get a hardware mac from PC to use as a MAC address
 
 # Program settings
 settings['version'] = "0.0.0" #I'd recommend keeping this format
@@ -38,15 +38,14 @@ settings['baud'] = 115200 #should the default be 9600?
 
 # iDigi Settings
 # base the device ID on the MAC address (can be overwritten after import)
-settings['device_id'] = "00000000-00000000-%06XFF-FF%06X" % ((settings.get('MAC', 0x000000000000) & 0xFFFFFF000000) >> (8*3), 
-                                                              settings.get('MAC', 0x000000000000) & 0x0000000FFFFFF)
+settings['device_id'] = "00000000-00000000-%06XFF-FF%06X" % ((settings.get('mac', 0x000000000000) & 0xFFFFFF000000) >> (8*3), 
+                                                              settings.get('mac', 0x000000000000) & 0x0000000FFFFFF)
 settings['idigi_server'] = 'developer.idigi.com'
 settings['idigi_certs_file'] = 'idigi-ca-cert-public.crt'
 settings['device_type'] = 'PC Gateway'
-#settings['vendor_id'] = 0x1234 #can set vendor ID in iDigi
+#settings['vendor_id'] = 0x12345678 #can set vendor ID in iDigi
 
 # extra descriptions
-settings['product'] = 'PC Gateway' 
 settings['company'] = 'Digi International' 
 #settings['device_name'] = '' # user friendly name for the device
 #settings['contact'] = 'name@example.com'
