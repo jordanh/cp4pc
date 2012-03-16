@@ -3,6 +3,13 @@ import base64
 import os
 
 
+def _is_path_within_root(path):
+    norm_path = os.path.normpath(path)
+    if norm_path.startswith('..'):
+        return False
+    else:
+        return True
+
 def _path_to_fs(root, path):
     if path.startswith('/'):
         path = path[1:]
@@ -12,7 +19,7 @@ def _path_to_fs(root, path):
 class FileSystemTarget(TargetNode):
     desc = "Interact with a portion of the device filesystem"
     
-    def __init__(self, root_fs=""):
+    def __init__(self, root_fs="."):
         TargetNode.__init__(self, "file_system")
         # go ahead and include the FileSystem commands
         self.attach(FilesystemPutFile(root_fs))
@@ -53,6 +60,10 @@ class FilesystemPutFile(BranchNode):
             decoded_data = base64.decodestring(data_element.text)
         except:
             return self._xml_error(3)
+        
+        # validate that the path is within the root path
+        if not _is_path_within_root(name):
+            return self._xml_error(3)
 
         # validate that the target directory exists
         path = _path_to_fs(self.root, name)
@@ -88,6 +99,10 @@ class FilesystemGetFile(BranchNode):
         if name is None:
             return self._xml_error(1)
 
+        # validate that the path is within the root path
+        if not _is_path_within_root(name):
+            return self._xml_error(3)
+
         path = _path_to_fs(self.root, name)
         if not (os.path.exists(path) and os.path.isfile(path)):
             return self._xml_error(2)
@@ -119,6 +134,10 @@ class FilesystemRemoveFile(BranchNode):
         if name is None:
             return self._xml_error(1)
 
+        # validate that the path is within the root path
+        if not _is_path_within_root(name):
+            return self._xml_error(3)
+
         path = _path_to_fs(self.root, name)
         if os.path.exists(path):
             if os.path.isdir(path):
@@ -149,6 +168,10 @@ class FileystemListDirectory(BranchNode):
             return ("<{tag}><error id='1' "
                     "desc='No dir specified for ls' /></{tag}>"
                     .format(tag=ls_element.tag))
+
+        # validate that the path is within the root path
+        if not _is_path_within_root(directory):
+            return self._xml_error(3)
 
         # there is a directory attribute, now we need to validate that
         # that directory actually exists on the filesystem
