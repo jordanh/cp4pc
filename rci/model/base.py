@@ -300,9 +300,15 @@ class TargetNode(BranchNode):
         else:
             ret = ''
             for xml_child in xml_tree:
-                ret += BranchNode.handle_xml(self, xml_child)
+                child_node = self.get(xml_child.tag)
+                if child_node:
+                    ret += child_node.handle_xml(xml_child)
+                else:
+                    pass #TODO: return an error when there is an unsupported command
             return ret
-        
+                
+            #return BranchNode.handle_xml(self, xml_tree)
+       
 
 class LeafNode(Node):
     """A Node that has no children (just data)
