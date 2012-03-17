@@ -22,20 +22,16 @@ EDP
 ===
 - Support other push methods than HTTP PUT (like the Messaging Facility).
 - Support passwords.
-- Merge in changes from Spectrum (support for vendor IDs and such)
 - Change to using a thread instead of a state machine with tick?
 
 RCI
 ===
 - Edit query_settings and query_state so developer.idigi.com lists useful information for Device Properties.
-- Merge in Spectrum code that supports query descriptors
 - Make improvements to local web server feature.
 - Fully support the do_command target "zigbee"?
-- Support iDigi commands to update XBee firmware? (Probably not)
 
 ZigBee
 ======
-- Get rid of zigbee.py in favor of just xbee.py?
 
 GUI
 ===
