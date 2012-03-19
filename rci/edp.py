@@ -312,8 +312,6 @@ class EDP:
                 # read data from socket buffer
                 rlist = select.select([self.sock], [], [], 0)[0]
                 if rlist:
-                    #self._handle_error("Socket not readable") #TODO: should this be a real error?
-                    #return -EIO
                     self.rxdata += self.sock.recv(4096)               
                 
                 # Check if complete message ready and, if so, send it to
