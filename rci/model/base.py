@@ -12,6 +12,7 @@ def _dict2xmlattr(d):
     return " ".join('{key}="{value}"'.format(key=key, value=value)
                     for key, value in d.items())
 
+#TODO: use dscr_avail to figure out if we should expand child nodes or not.
 
 def _get_attr_desc_xml(tree_node):
     """Get xml for attributes a node"""
@@ -27,7 +28,7 @@ def _get_attr_desc_xml(tree_node):
             sio.write(">")
             for value in attribute.values:
                 sio.write('<value value="{value}" desc="{desc}"'
-                          '  dscr_avail="true" />'
+                          '  dscr_avail="true" />' #FIXME: this should not always be set to true!
                           .format(value=value.name, desc=value.desc))
             sio.write("</attr>")
         else:
@@ -81,16 +82,6 @@ class RCIAttribute(object):
         self.desc = desc
         self.values = values
 
-
-class RCIAttributeValue(object):
-    """Encapsulate information describing an RCI attribute value"""
-
-    def __init__(self, name, desc, target_node):
-        self.name = name
-        self.desc = desc
-        self.target_node = target_node
-
-
 class Node(object):
     """Base node class, must have at least a name"""
 
@@ -117,8 +108,7 @@ class Node(object):
 
     def _xml_error(self, error_id, error_desc=None, hint=None):
         """Build an XML rci error with the provided information"""
-        if (error_desc is None
-            and len(self.errors) > 0):
+        if (error_desc is None and len(self.errors) > error_id):
             error_desc = self.errors[error_id]
         attrs = {
             'id': error_id,
@@ -126,16 +116,16 @@ class Node(object):
         }
         if hint is not None:
             attrs['hint'] = hint
-        attrs_text = " ".join('{key}="{val}"'.format(key=key, val=val)
+        attrs_text = " ".join('{key}="{val}"'.format(key=key, val=str(val))
                               for key, val in attrs.items())
         return "<error {attrs_text} />".format(attrs_text=attrs_text)
 
-    def handle_xml(self, etree_node):
-        return self.toxml()
+    def handle_xml(self, xml_node):
+        return self.toxml(xml_node.attrib)
 
-    def toxml(self):
+    def toxml(self, attributes=None):
         """Return a representation of this node in XML form"""
-        return self._xml_tag()
+        return self._xml_tag() #TODo: should include attributes?
 
 
 class BranchNode(Node):
@@ -214,7 +204,7 @@ class BranchNode(Node):
                     if res is not None:
                         return res
 
-                # no child matces, not a match
+                # no child matches, not a match
                 return None
 
         # not a match
@@ -234,7 +224,7 @@ class BranchNode(Node):
     def to_descriptor_xml(self, xml_query_node):
         attrs = {
             'element': self.name,
-            'desc': self.desc,
+            'desc': self.desc or ''
         }
         if self.dscr_avail is not None:
             attrs['dscr_avail'] = self.desr_avail
@@ -244,8 +234,8 @@ class BranchNode(Node):
             attrs['format'] = self.dformat
 
         child_descriptor_xml = ''.join(x.to_descriptor_xml(None)
-                                       for x in self.children)
-        attr_text = " ".join('{key}="{value}"'.format(key=key, value=value)
+                                       for x in self)
+        attr_text = " ".join('{key}="{value}"'.format(key=key, value=str(value))
                              for key, value in attrs.items())
 
         return ("<descriptor {attr_text}>{attributes}"
@@ -255,22 +245,22 @@ class BranchNode(Node):
                         error_text=_get_error_desc_xml(self),
                         children=child_descriptor_xml))
 
-    def handle_xml(self, xml_tree):
-        if len(xml_tree) == 0:
-            return self.toxml()
+    def handle_xml(self, xml_node):
+        if len(xml_node) == 0:
+            return self.toxml(xml_node.attrib)
         else:
             output = ""
-            for child in xml_tree:
+            for child in xml_node:
                 match_node = self._tree_match(child, self)
                 if match_node:
-                    output += match_node.toxml()
+                    output += match_node.toxml(child.attrib)
                 else:
                     output += '' #TODO: what to do if there is no match?
             return self._xml_tag(output)
 
     def toxml(self, attributes=None):
         return self._xml_tag(
-            body=''.join(child.toxml() for child in self.children),
+            body=''.join(child.toxml() for child in self),
             attributes=attributes)
 
 
@@ -279,35 +269,34 @@ class TargetNode(BranchNode):
     def __init__(self, name, desc='', callback=None):
         BranchNode.__init__(self, name, desc)
         self.callback = callback
+        if callback:
+            self.desr_avail = False
 
     def to_descriptor_xml(self, xml_query_node):
-        child_descriptor_xml = ''.join(x.to_descriptor_xml(None)
-                                       for x in self.children)        
+        child_descriptor_xml = ''.join(x.to_descriptor_xml(None) for x in self)
         return ('<attr name="target" desc="{desc}" value="{target}">'
                 '{child}</attr>'
                 .format(target=self.name,
-                        desc=self.desc,
+                        desc=str(self.desc),
                         child=child_descriptor_xml))
     
-    def handle_xml(self, xml_tree):
+    def handle_xml(self, xml_node):
         if self.callback:
             # pass XMl as a string to the callback
-            xml_payload = xml_tree.text # characters before first child
-            for parameter in list(xml_tree):
+            xml_payload = xml_node.text # characters before first child
+            for parameter in list(xml_node):
                 xml_payload += ET.tostring(parameter)
-            xml_payload += xml_tree.tail # characters after last element
+            xml_payload += xml_node.tail # characters after last element
             return self.callback(xml_payload)
         else:
             ret = ''
-            for xml_child in xml_tree:
+            for xml_child in xml_node:
                 child_node = self.get(xml_child.tag)
                 if child_node:
                     ret += child_node.handle_xml(xml_child)
                 else:
                     pass #TODO: return an error when there is an unsupported command
             return ret
-                
-            #return BranchNode.handle_xml(self, xml_tree)
        
 
 class LeafNode(Node):
@@ -348,6 +337,9 @@ class LeafNode(Node):
     #: errors (dictionary of id -> desc pairs)
     errors = None
 
+    #: alias optional
+    alias = None
+
     def __init__(self, name):
         Node.__init__(self, name)
         if self.attrs is None:
@@ -378,6 +370,8 @@ class LeafNode(Node):
             attrs['access'] = self.access
         if self.units is not None:
             attrs['units'] = self.units
+        if self.alias is not None:
+            attrs['alias'] = self.alias
 
         # TODO: add enum descriptor support
         if self.errors is None and self.attrs is None:
@@ -417,13 +411,13 @@ class SimpleLeafNode(LeafNode):
         if desc is not None:
             self.desc = desc
 
-    def toxml(self):
+    def toxml(self, attributes=None):
+        # NOTE: parameter attributes is ignored. 
         if self.accessor is not None:
             value = self.accessor()
-            if isinstance(value, str):
-                return self._xml_tag(body=value)
+            if isinstance(value, tuple) or isinstance(value, list):
+                return self._xml_tag(body=str(value[0]), attributes=value[1])
             else:
-                body, attributes = self.accessor()
-                return self._xml_tag(body=body, attributes=attributes)
+                return self._xml_tag(body=str(value))
         else:
             return self._xml_tag()

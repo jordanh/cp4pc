@@ -1,5 +1,5 @@
 """Encapsulate common higher-level elements common to many devices"""
-from rci.model.base import BranchNode, RCIAttribute, RCIAttributeValue, TargetNode
+from rci.model.base import BranchNode, RCIAttribute, TargetNode
 import traceback
 
 
@@ -63,11 +63,24 @@ class RciDescriptor(BranchNode):
                     # we need leaf node in XML, assume single child
                     xml_node = xml_tree
                     while len(xml_node.getchildren()) > 0:
-                        xml_node = xml_tree.getchildren()[0]
+                        xml_node = xml_node.getchildren()[0]
 
                     # get the descriptor, providing leaf xml as a helper
                     response += match_root.to_descriptor_xml(xml_node)
             return self._xml_tag(response)
+
+#                try:
+#                    xml_node = xml_tree
+#                    while len(xml_node.getchildren()) > 0:
+#                        xml_node = xml_tree.getchildren()[0]
+#    
+#                    # get the descriptor, providing leaf xml as a helper
+#                    response += match_root.to_descriptor_xml(xml_node)
+#                except Exception, e:
+#                    response += ('<{tag}>{error}</{tag}>'
+#                                 .format(tag=subtree.tag,
+#                                         error=self._xml_error(1, hint=e)))
+#            return self._xml_tag(response)
 
 
 class RciDoCommand(BranchNode):
@@ -85,9 +98,9 @@ class RciDoCommand(BranchNode):
     @property
     def attrs(self):
         """property for .attrs, as we want to calculate dynamically"""
-        target_values = [RCIAttributeValue(target.name, target.desc, target.children) for target in self]
+        target_values = [RCIAttribute(target.name, target.desc) for target in self]
         return [RCIAttribute("target", "The target for the command to execute",
-                             target_values), ]
+                             target_values)]
 
     def __init__(self):
         BranchNode.__init__(self, 'do_command')
@@ -120,20 +133,20 @@ class RciDoCommand(BranchNode):
             </rci_request>
 
         """
+        #FIXME: we should only return attrs when no target is specified.
         if xml_query_node is None:
             return BranchNode.to_descriptor_xml(self, xml_query_node)
-
         target = xml_query_node.attrib.get('target', None)
-        if target is None:  # defer
+        if target is None:
             return BranchNode.to_descriptor_xml(self, xml_query_node)
         
         target_node = self.get(target)
         if target_node is None:
-            return BranchNode.to_descriptor_xml(self, xml_query_node)
+            return self._xml_error(2) #name not registered
 
         return ('<descriptor element="do_command">'
                 '{target}</descriptor>'
-                .format(target=target_node))
+                .format(target=target_node.to_descriptor_xml(xml_query_node)))
 
     def handle_xml(self, xml_tree):
         target = xml_tree.attrib.get('target')

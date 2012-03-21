@@ -19,6 +19,7 @@ from controller.rcihandler import RCIHandler
 # filesystem target
 from controller.filesystem import FileSystemTarget
 # ZigBee handlers - initialized at bottom of file
+from controller.zigbee import ZigbeeTarget
 
 import edp
 import addp
@@ -179,7 +180,7 @@ rci_tree.attach(RciSettings()
 #-- RCI do_command --#
 rci_tree.attach(RciDoCommand()
     .attach(FileSystemTarget())
-#    .attach(ZigbeeTarget())
+    .attach(ZigbeeTarget())
 )
 
 rci_handler = RCIHandler(rci_tree)
