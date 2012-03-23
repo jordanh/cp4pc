@@ -297,10 +297,13 @@ class TargetNode(BranchNode):
     def handle_xml(self, xml_node):
         if self.callback:
             # pass XMl as a string to the callback
-            xml_payload = xml_node.text # characters before first child
+            xml_payload = ''
+            if xml_node.text: #defaults to None
+                xml_payload = xml_node.text # characters before first child
             for parameter in list(xml_node):
                 xml_payload += ET.tostring(parameter)
-            xml_payload += xml_node.tail # characters after last element
+            if xml_node.tail: #defaults to None
+                xml_payload += xml_node.tail # characters after last element
             return self.callback(xml_payload)
         else:
             ret = ''
