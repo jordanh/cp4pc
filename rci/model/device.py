@@ -8,8 +8,8 @@ class DeviceRoot(BranchNode):
     def __init__(self):
         BranchNode.__init__(self, "/")
 
-    def to_descriptor_xml(self, xml_query_node):
-        return ''.join(x.to_descriptor_xml(None) for x in self)
+    def descriptor_xml(self, xml_node):
+        return self.child_descriptors(xml_node)
 
 
 class RciSettings(BranchNode):
@@ -47,44 +47,12 @@ class RciDescriptor(BranchNode):
         BranchNode.__init__(self, "query_descriptor")
         self.device_tree = device_tree
 
-    def handle_xml(self, xml_tree):
+    def handle_xml(self, xml_node):
         """Handle xml under "query_descriptor" request and return a response"""
-        if len(xml_tree) == 0:
-            return self._xml_tag(self.device_tree.to_descriptor_xml(None))
-        else:
-            response = ""
-            for subtree in xml_tree:
-                match_root = self._tree_match(subtree, self.device_tree)
-                if match_root is None:
-                    response += ('<{tag}>{error}</{tag}>'
-                                 .format(tag=subtree.tag,
-                                         error=self._xml_error(1)))
-                else:
-                    # we need leaf node in XML, assume single child
-                    xml_node = xml_tree
-                    while len(xml_node.getchildren()) > 0:
-                        xml_node = xml_node.getchildren()[0]
-
-                    # get the descriptor, providing leaf xml as a helper
-                    response += match_root.to_descriptor_xml(xml_node)
-            return self._xml_tag(response)
-
-#                try:
-#                    xml_node = xml_tree
-#                    while len(xml_node.getchildren()) > 0:
-#                        xml_node = xml_tree.getchildren()[0]
-#    
-#                    # get the descriptor, providing leaf xml as a helper
-#                    response += match_root.to_descriptor_xml(xml_node)
-#                except Exception, e:
-#                    response += ('<{tag}>{error}</{tag}>'
-#                                 .format(tag=subtree.tag,
-#                                         error=self._xml_error(1, hint=e)))
-#            return self._xml_tag(response)
+        return self._xml_tag(self.device_tree.descriptor_xml(xml_node))
 
 
 class RciDoCommand(BranchNode):
-
     desc = "Trigger some piece of functionality"
 
     errors = {
@@ -120,7 +88,7 @@ class RciDoCommand(BranchNode):
             self.children.remove(target_node)
         return self # allow for method chaining
 
-    def to_descriptor_xml(self, xml_query_node):
+    def descriptor_xml(self, xml_node):
         """Get the descriptor XML for do_command
 
         It might be the case that we get an xml_query_node for a request
@@ -133,21 +101,25 @@ class RciDoCommand(BranchNode):
             </rci_request>
 
         """
-        #FIXME: we should only return attrs when no target is specified.
-        if xml_query_node is None:
-            return BranchNode.to_descriptor_xml(self, xml_query_node)
-        target = xml_query_node.attrib.get('target', None)
+        children_xml = ''
+        target = xml_node.attrib.get('target', None)
         if target is None:
-            return BranchNode.to_descriptor_xml(self, xml_query_node)
+            # remove children from xml_node, then get top level response from children
+            for xml_child in list(xml_node):
+                xml_node.remove(xml_child)
+            for child_node in self:
+                children_xml += child_node.descriptor_xml(xml_node)
+        else:
+            target_node = self.get(target)
+            if target_node is None:
+                return self._xml_error(2) #name not registered
         
-        target_node = self.get(target)
-        if target_node is None:
-            return self._xml_error(2) #name not registered
+            children_xml = target_node.descriptor_xml(xml_node)
 
         return ('<descriptor element="do_command">'
                 '{target}</descriptor>'
-                .format(target=target_node.to_descriptor_xml(xml_query_node)))
-
+                .format(target=children_xml))
+        
     def handle_xml(self, xml_tree):
         target = xml_tree.attrib.get('target')
         if target is None:

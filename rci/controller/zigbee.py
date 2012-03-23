@@ -37,7 +37,7 @@ class ZigbeeTarget(TargetNode):
         self.attach(QuerySetting())
         self.attach(QueryState())
 
-    def to_descriptor_xml(self, xml_query_node):
+    def descriptor_xml(self, xml_node):
         # only process requests if xbee or zigbee module has been imported by the code.
         if xbee_enabled():
             return TargetNode.descriptor_xml(self, xml_node)
@@ -105,7 +105,7 @@ class Discover(BranchNode):
 
     #TODO: fill in descriptor details for discovery command.
     #NOTE: not necessary for iDigi integration.
-    #def to_descriptor_xml(self, xml_query_node):
+    #def descriptor_xml(self, xml_node):
 
 class QuerySetting(BranchNode):
     desc = "Request current XBee node configuration"

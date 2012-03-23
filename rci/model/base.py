@@ -120,6 +120,10 @@ class Node(object):
                               for key, val in attrs.items())
         return "<error {attrs_text} />".format(attrs_text=attrs_text)
 
+    def descriptor_xml(self, xml_node):
+        # Root node doesn't have any descriptor information to return
+        return ''
+
     def handle_xml(self, xml_node):
         return self.toxml(xml_node.attrib)
 
@@ -221,7 +225,20 @@ class BranchNode(Node):
         self.children.append(child)
         return self
 
-    def to_descriptor_xml(self, xml_query_node):
+    def child_descriptors(self, xml_node):
+        # look for children descriptor responses
+        child_descriptor_xml = ''
+        for xml_child in xml_node.getchildren():
+            child = self.get(xml_child.tag)
+            if child:
+                child_descriptor_xml += child.descriptor_xml(xml_child)
+            else:
+                # ERROR if we don't match a child?
+                pass
+        return child_descriptor_xml
+
+    def descriptor_xml(self, xml_node):
+        # create own descriptor response
         attrs = {
             'element': self.name,
             'desc': self.desc or ''
@@ -232,18 +249,15 @@ class BranchNode(Node):
             attrs['access'] = self.access
         if self.dformat is not None:
             attrs['format'] = self.dformat
-
-        child_descriptor_xml = ''.join(x.to_descriptor_xml(None)
-                                       for x in self)
         attr_text = " ".join('{key}="{value}"'.format(key=key, value=str(value))
                              for key, value in attrs.items())
-
+           
         return ("<descriptor {attr_text}>{attributes}"
                 "{error_text}{children}</descriptor>"
                 .format(attr_text=attr_text,
                         attributes=_get_attr_desc_xml(self),
                         error_text=_get_error_desc_xml(self),
-                        children=child_descriptor_xml))
+                        children=self.child_descriptors(xml_node)))       
 
     def handle_xml(self, xml_node):
         if len(xml_node) == 0:
@@ -272,14 +286,14 @@ class TargetNode(BranchNode):
         if callback:
             self.desr_avail = False
 
-    def to_descriptor_xml(self, xml_query_node):
-        child_descriptor_xml = ''.join(x.to_descriptor_xml(None) for x in self)
+    def descriptor_xml(self, xml_node):
+        # add children to our own response
         return ('<attr name="target" desc="{desc}" value="{target}">'
                 '{child}</attr>'
                 .format(target=self.name,
-                        desc=str(self.desc),
-                        child=child_descriptor_xml))
-    
+                        desc=str(self.desc), #TODO: this desc isn't working right now...
+                        child=self.child_descriptors(xml_node)))
+
     def handle_xml(self, xml_node):
         if self.callback:
             # pass XMl as a string to the callback
@@ -347,7 +361,7 @@ class LeafNode(Node):
         if self.errors is None:
             self.errors = {}
 
-    def to_descriptor_xml(self, xml_query_node):
+    def descriptor_xml(self, xml_node):
         attrs = {
             'desc': self.desc,
             'name': self.name,
