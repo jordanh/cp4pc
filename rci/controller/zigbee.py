@@ -95,12 +95,19 @@ class Discover(BranchNode):
             device = ET.SubElement(root, 'device')
             device.attrib['index'] = str(n+1) #start index at 1 instead of 0
             ET.SubElement(device, 'type').text = self.TYPE_CONVERSION.get(node.type, '0')
-            ET.SubElement(device, 'ext_addr').text = node.addr_extended[1:-2]+'!' #remove '[' and ']'
+            ET.SubElement(device, 'ext_addr').text = node.addr_extended[1:-2].lower()+'!' #remove '[' and ']'
             ET.SubElement(device, 'net_addr').text = '0x'+node.addr_short[1:-2].lower()
             ET.SubElement(device, 'parent_addr').text = '0x'+node.addr_parent[1:-2].lower()
-            ET.SubElement(device, 'profile_id').text = '0x%04x' % node.profile_id
-            ET.SubElement(device, 'mfg_id').text = "0x%04x" % node.manufacturer_id
+            if node.addr_extended.lower().startswith('[00:13:a2'):
+                # this is an XBee, let's default these parameters
+                ET.SubElement(device, 'profile_id').text = '0xc105'
+                ET.SubElement(device, 'mfg_id').text = '0x101e'
+            else:
+                ET.SubElement(device, 'profile_id').text = '0x%04x' % node.profile_id
+                ET.SubElement(device, 'mfg_id').text = "0x%04x" % node.manufacturer_id                
+            ET.SubElement(device, 'device_type').text = '0x000000'
             ET.SubElement(device, 'node_id').text = node.label
+            ET.SubElement(device, 'contact_time').text = '0'
         return ET.tostring(root)
 
     #TODO: fill in descriptor details for discovery command.
