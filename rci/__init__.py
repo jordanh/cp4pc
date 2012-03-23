@@ -70,13 +70,14 @@ class RCIHandler(object):
             return_xml = ('<error id="1" desc="Expected rci_request root'
                           ' node but got something else />')
         for xml_child in root:
+            logger.info("Received %s request" % xml_child.tag)
+            logger.debug("Full request %s"%xml_text)
             for device_node in self.device_tree:
-                logger.info("Received %s request" % xml_child.tag)
-                logger.debug("Full request %s"%xml_text)
                 if device_node.name == xml_child.tag:
                     node_xml = device_node.handle_xml(xml_child)
                     break
             else:
+                logger.warning("Unsupported tag %s"%xml_child.tag)
                 node_xml = ('<{tag}><error id="1" '
                             'desc="Unknown tag" /></{tag}>'
                                .format(tag=xml_child.tag))
