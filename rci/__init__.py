@@ -161,6 +161,9 @@ rci_tree.attach(RciState()
                                desc="Name of host operating system",
                                accessor=lambda: sys.platform))
     )
+    .attach(BranchNode('boot_stats', 'Primary interface')
+        .attach(SimpleLeafNode('ip', dtype=DTYPE.IPV4, desc='IP Address', accessor=create_accessor('ip_address', '0.0.0.0')))
+    )
 )
 #-- RCI Settings --#
 rci_tree.attach(RciSettings()
