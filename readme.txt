@@ -17,7 +17,6 @@ Notes:
 What is unknown or TBD:
 1) TBD - does DigiMesh and others work?
 2) TBD - the PC does not appear to show up on the iDigi 'XBee Networks' page
-3) TBD - this probably works fine if the PC's XBee is a Router, not a Coordinator
 
 Steps to use:
 
@@ -27,7 +26,7 @@ Steps to use:
  AP=1 : enable API mode
  AO=1 : enable explict messages
 
-2) Checkout and place the cp4pc directory in a convient drive location, such as C:\Python26\Lib\site-packages\cp4pc
+2) Checkout and place the cp4pc directory in a convenient drive location, such as C:\Python26\Lib\site-packages\cp4pc
 
 3) Add the cp4pc directory to your PYTHONPATH.  With Windows one option is to create a MSDOS batch file such as:
 ====================
