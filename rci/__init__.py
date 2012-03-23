@@ -14,8 +14,6 @@ except:
 from model.base import BranchNode, LeafNode, SimpleLeafNode, DTYPE
 from model.device import DeviceRoot, RciDescriptor, RciState, RciSettings, RciDoCommand
 
-# Handlers
-from controller.rcihandler import RCIHandler 
 # filesystem target
 from controller.filesystem import FileSystemTarget
 # ZigBee handlers - initialized at bottom of file
@@ -36,6 +34,58 @@ stderr_formatter = logging.Formatter("[%(asctime)s] %(levelname)s RCI: %(message
 stderr_handler.setFormatter(stderr_formatter)
 logger.addHandler(stderr_handler)
 logger.setLevel(logging.INFO)
+
+
+class RCIHandler(object):
+    """Manage the device tree and its mapping to rci requests"""
+
+    def __init__(self, device_tree):
+        self.device_tree = device_tree
+
+    def _rci_response(self, body):
+        return "<rci_reply version=\"1.1\">%s</rci_reply>" % body
+
+    def add_callback(self, name, callback):
+        do_command = self.device_tree.get('do_command')
+        if do_command is None:
+            raise Exception("do_command not supported")
+        else:
+            global logger
+            logger.info("do_command target '%s' registered" % name)
+            return do_command.add_callback(name, callback)
+            
+    def remove_callback(self, name):
+        do_command = self.device_tree.get('do_command')
+        if do_command:
+            return do_command.remove_callback(name) 
+
+    def handle_rci_request(self, xml_text):
+        """Return RCI response based on our tree structure"""
+        global logger
+        root = ET.fromstring(xml_text)
+
+        return_xml = ""
+        if not root.tag == "rci_request":
+            logger.warn("RCIHandler received non-RCI request with root tag %s" % root.tag)
+            return_xml = ('<error id="1" desc="Expected rci_request root'
+                          ' node but got something else />')
+        for xml_child in root:
+            for device_node in self.device_tree:
+                logger.info("Received %s request" % xml_child.tag)
+                logger.debug("Full request %s"%xml_text)
+                if device_node.name == xml_child.tag:
+                    node_xml = device_node.handle_xml(xml_child)
+                    break
+            else:
+                node_xml = ('<{tag}><error id="1" '
+                            'desc="Unknown tag" /></{tag}>'
+                               .format(tag=xml_child.tag))
+            return_xml += node_xml
+
+        return_xml = self._rci_response(return_xml)
+        logger.debug("Full response %s" % return_xml)
+
+        return return_xml
 
 rci_callback_names = [] #TODO: find a better way to do this?  Seems like a real waste.
 def add_rci_callback(name, callback):
