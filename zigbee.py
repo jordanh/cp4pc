@@ -655,7 +655,7 @@ class NeighborTableDescriptorRecord:
         self.depth = depth
         self.lqi = lqi
     
-    def extract(self, buffer):
+    def extract(self, buf):
         try:
             self.pan_extended,\
             self.addr_extended,\
@@ -663,7 +663,7 @@ class NeighborTableDescriptorRecord:
             byte1,\
             byte2,\
             self.depth,\
-            self.lqi = struct.unpack("<QQHBBBB", buffer)
+            self.lqi = struct.unpack("<QQHBBBB", buf)
             
             self.device_type = byte1 & 0x03
             self.rx_on_when_idle = (byte1 & 0x0C) >> 2
@@ -678,16 +678,16 @@ class NeighborTableDescriptorRecord:
     def export(self):
         byte1 = self.device_type | (self.rx_on_when_idle << 2) | (self.relationship << 4)
         
-        buffer = struct.pack("<QQHBBBB",\
-                             self.pan_extended,\
-                             self.addr_extended,\
-                             self.addr_short,\
-                             byte1,\
-                             self.permit_joining,\
-                             self.depth,\
-                             self.lqi)
+        buf = struct.pack("<QQHBBBB",\
+                          self.pan_extended,\
+                          self.addr_extended,\
+                          self.addr_short,\
+                          byte1,\
+                          self.permit_joining,\
+                          self.depth,\
+                          self.lqi)
         
-        return buffer
+        return buf
 
 
 class Mgmt_Lqi_rsp:
@@ -1224,7 +1224,7 @@ class XBee:
                 for node in self.node_list:
                     LQI_aggregator(self.lqi_cluster, node.addr_extended, 0, self._LQI_callback)
                 start_time = time.clock()
-                while time.clock() < start_time + 6.625:
+                while time.clock() < start_time + 3: #NOTE: used to be 6.625 (as measured on CPX2)
                     self.read_messages()
                     if not blocking:
                         break
@@ -1303,20 +1303,20 @@ class XBee:
         addr_parent = "[FFFE]!"
         if VR & 0x0F00 == 0x0100:
             # this is a Coordinator
-            type = self.device_types[0]
+            dtype = self.device_types[0]
         elif VR & 0x0F00 == 0x0300:
             # this is a Router
-            type = self.device_types[1]
+            dtype = self.device_types[1]
         elif VR & 0x0F00 == 0x0400:
             # this is a Range Extender, device type is Router though
-            type = self.device_types[1]
+            dtype = self.device_types[1]
         else:
             #this is an End Device
-            type = self.device_types[2]
+            dtype = self.device_types[2]
             # only available on End Devices
             at_mp = self.ddo_get_param(None, "mp")
             addr_parent = short_to_address_string(struct.unpack(">H", at_mp)[0])
-        return Node(type, addr_extended, addr_short, addr_parent, self.DIGI_PROFILE_ID, self.DIGI_MANUFACTURER_ID, label)                
+        return Node(dtype, addr_extended, addr_short, addr_parent, self.DIGI_PROFILE_ID, self.DIGI_MANUFACTURER_ID, label)                
 
     def _LQI_callback(self, record_list):
         """callback for LQI aggregator on a Device"""
@@ -1350,7 +1350,7 @@ class XBee:
                             addr_extended  = addr_extended,\
                             addr_short = addr_short)
             self.node_list.append(new_node)
-            new_lqi_aggregator = LQI_aggregator(self.lqi_cluster, new_node.addr_extended, 0, self._LQI_callback)
+            LQI_aggregator(self.lqi_cluster, new_node.addr_extended, 0, self._LQI_callback)
         
 # Create local XBee to refer to by default
 default_xbee = XBee()
@@ -1480,7 +1480,7 @@ class Node:
         self.addr_short = addr_short
         "16-bit network assigned address"
         if addr_parent is None:
-            addr_parent = ""
+            addr_parent = "[FFFE]!"
         self.addr_parent = addr_parent
         "16-bit network parent address"
         self.profile_id = profile_id
