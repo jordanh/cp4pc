@@ -11,7 +11,7 @@ except:
     except:
         import ElementTree as ET
 
-xbee = None
+xbee = None #global XBee module set by ZigbeeTarget
 
 #TODO: move this to a utility file?
 def binstring_to_uint(value):
@@ -21,6 +21,11 @@ def binstring_to_uint(value):
         retval = retval * 256 + ord(curr_byte)
     return retval
 
+def xbee_enabled():
+    global xbee
+    if xbee is None:
+        xbee = sys.modules.get('xbee', sys.modules.get('xbee'))
+    return xbee is not None
 
 class ZigbeeTarget(TargetNode):
     desc = "Interact with the XBee radio on the device."
@@ -31,23 +36,18 @@ class ZigbeeTarget(TargetNode):
         self.attach(Discover())
         self.attach(QuerySetting())
         self.attach(QueryState())
-        self.xbee = None
-
-    def _xbee_enabled(self):
-        if self.xbee is None:
-            self.xbee = sys.modules.get('xbee', sys.modules.get('xbee'))
-        return self.xbee is not None
 
     def to_descriptor_xml(self, xml_query_node):
         # only process requests if xbee or zigbee module has been imported by the code.
-        if self._xbee_enabled():
-            return TargetNode.to_descriptor_xml(self, xml_query_node)
+        if xbee_enabled():
+            return TargetNode.descriptor_xml(self, xml_node)
         else:
             return ''
         
     def handle_xml(self, xml_tree):
         # only process requests if xbee or zigbee module has been imported by the code.
-        if self._xbee_enabled():
+        #TODO: make sure code doesn't skip this class and access child classes directly
+        if xbee_enabled():
             return TargetNode.handle_xml(self, xml_tree)
         else:
             return ''
@@ -77,7 +77,10 @@ class Discover(BranchNode):
         
         # request data
         try:
-            nodes = xbee.get_node_list(refresh=refresh)
+            if xbee_enabled():
+                nodes = xbee.get_node_list(refresh=refresh)
+            else:
+                return self._xml_error(5, 'XBee not found.')
         except Exception, e:
             return self._xml_error(3, hint='get_node_list failed.')
         
@@ -145,7 +148,11 @@ class ATLeafNode(LeafNode):
         
     def toxml(self, attributes=None):
         addr = attributes.get('addr') #Will default to own device (None)
-        value = self.xbee.ddo_get_param(addr, self.alias)
+        
+        if not xbee_enabled():
+            return self._xml_error(4, 'XBee not found.')
+        
+        value = xbee.ddo_get_param(addr, self.alias)
         body = None
         if self.alias.upper() == 'NI':
             # NI is a string, send directly
