@@ -1,6 +1,10 @@
 http://git.digi.com/projects/?p=python/cp4pc.git;a=summary
 
-ReadMe file for the CP4-on-PC project.
+ReadMe file for the ConnectPort for Person Computer (cp4pc) project.
+
+Requirements:
+1) Python 2.6 or newer - it won't work with Python 2.4.3 due to missing standard modules
+2) pyserial - this is used to connect to the XBee
 
 Over the years Digi engineers have been creating various Python tools which emulate a Digi gateway - such as the CPX4.  These include ADDP, EDP and XBee-like socket and DDO functions.  As of March 2012, one can even run the iDigi/Dia with Xbee devices.
 
@@ -11,20 +15,17 @@ What works:
 4) Support for ZB ZBee with the PC as the coordinator
 5) normal iDigi/EDP upload works
 
-Notes:
-1) you must use Python 2.6 or newer - it won't work with Python 2.4.3 due to missing standard modules
-
 What is unknown or TBD:
 1) TBD - does DigiMesh and others work?
 2) TBD - the PC does not appear to show up on the iDigi 'XBee Networks' page
 
 Steps to use:
 
-1) Add an Xbee (XStick or XBIB) to your PC.  Flash the XBee with API Coordinator firmware, add settings:
+1) Add an XBee (XStick or XBIB) to your PC.  Flash the XBee with API Coordinator firmware, add settings:
  BD=7 : Set a baud rate to 115,200
  CE=1 : enable coordinator (this may be optional - TBD)
  AP=1 : enable API mode
- AO=1 : enable explict messages
+ AO=1 : enable explicit messages
 
 2) Checkout and place the cp4pc directory in a convenient drive location, such as C:\Python26\Lib\site-packages\cp4pc
 
@@ -34,7 +35,7 @@ set PATH=%PATH%;C:\Python26;
 set PYTHONPATH=C:\Python26\Lib\site-packages\serial;C:\Python26\Lib\site-packages\cp4pc;
 ====================
 
-4) >>> EDIT the file named simulator_settings.py, which is in the root directory of the project cp4pc.  You must at least end the following lines:
+4) EDIT the file named simulator_settings.py, which is in the root directory of the project cp4pc.  You must at least end the following lines:
   # serial port settings for XBee
   settings['com_port'] = 'COM1' #default to first serial port.
   settings['baud'] = 115200
