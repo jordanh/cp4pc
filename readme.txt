@@ -5,6 +5,7 @@ ReadMe file for the ConnectPort for Person Computer (cp4pc) project.
 Requirements:
 1) Python 2.6 or newer - it won't work with Python 2.4.3 due to missing standard modules
 2) pyserial - this is used to connect to the XBee
+3) requires webob for the local webpage and ability to POST local code.
 
 Over the years Digi engineers have been creating various Python tools which emulate a Digi gateway - such as the CPX4.  These include ADDP, EDP and XBee-like socket and DDO functions.  As of March 2012, one can even run the iDigi/Dia with Xbee devices.
 

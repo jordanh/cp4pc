@@ -1,7 +1,12 @@
 import sys
 import logging
 import thread
+import threading
 import time
+from wsgiref.simple_server import make_server
+import webob
+from webob.dec import wsgify
+
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 try:
     from xml.etree import cElementTree as ET
@@ -25,7 +30,8 @@ import addp
 from simulator_settings import settings
 
 
-__all__ = ['add_rci_callback', 'process_request', 'stop_rci_callback']
+__all__ = ['add_rci_callback', 'process_request', 'stop_rci_callback', #standard Digi functions 
+           'set_wsgi_handler'] # extra functions for running on a PC
 
 # set up logger
 logger = logging.getLogger("RCI")
@@ -155,24 +161,48 @@ def process_request(request):
     global rci_handler
     return rci_handler.handle_rci_request(request)
 
+def set_wsgi_handler(handler):
+    global http_server
+    http_server.set_handler(handler)
 
-class RCI_HTTPHandler(BaseHTTPRequestHandler):
-    #TODO: Could add get handler to support a locally hosted webpage
-    def do_POST(self):
-        try:
-            if self.path != "/UE/rci":
-                self.send_response(404) #incorrect address
-                return
-            xml = self.rfile._rbuf # Hack, but don't know a better way to read data...
-            response = process_request(xml)
-            self.wfile.write(response)
-        except:
-                self.send_response(400) #bad request
+#===============================================================================
+# Helper classes and functions
+#===============================================================================
 
-def start_rci_server(local_port = 80):
-    logger.info("Starting web server on port %u..." % local_port)
-    server = HTTPServer(("", local_port), RCIHandler)
-    server.serve_forever()
+class HTTPHandler(threading.Thread):
+    def __init__(self, handler = None):
+        threading.Thread.__init__(self)
+        self.handler = handler # will process other HTTP requests
+    
+    def run(self):
+        while(1):
+            local_port = settings.get('local_port')
+            if not local_port:
+                time.sleep(1)
+                continue
+            logger.info("Starting web server at http://localhost:%d" % local_port)
+            make_server('', local_port, self).serve_forever()
+    
+    def set_handler(self, handler):
+        self.handler = handler
+    
+    def handle_request(self, request):
+        if request.method == "POST":
+            return webob.Response(process_request(request.body), content_type='application/xml')
+        else:
+            return webob.exc.HTTPMethodNotAllowed()    
+    
+    @wsgify
+    def __call__(self, request):
+        if request.path == '/UE/rci':
+            #handle request
+            return self.handle_request(request)
+        elif self.handler:
+            # pass on to handler
+            return self.handler(request)
+        else:
+            # request not handled
+            return webob.exc.HTTPNotFound()
 
 def create_accessor(name, default=''):
     return lambda: str(settings.get(name, default)) #make sure return value is string
@@ -188,9 +218,8 @@ addp_server.start()
 
 #NOTE: code will only run on first import - Python only imports files once
 # start HTTP server thread for processing RCI requests
-local_port = settings.get("local_port", 0)
-if local_port:
-    thread.start_new_thread(start_rci_server, (local_port,))
+http_server = HTTPHandler()
+http_server.start()
 
 # Create RCI tree that responds to RCI requests
 rci_tree = DeviceRoot()
