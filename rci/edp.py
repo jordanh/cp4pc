@@ -101,23 +101,17 @@ class EDP:
     PORT = 3197
     SSL_PORT = 3199
     
-    def __init__(self, device_id, device_type, host, mac, rci_process_request=None, vendor_id=None, idigi_certs_file=''):
+    def __init__(self, rci_process_request=None):
         # TCP socket
         self.sock = None
         # Current low-level state
         self.state = self.EDP_STATE_CLOSED
         # Higher level protocol phase
         self.phase = self.PHASE_INIT
-        # Host name
-        self.hostname = host
         # original URI
-        self.uri = "en://" + self.hostname
+        self.uri = "en://" + settings['idigi_server']
         # Redirected URI (or None for first try)
         self.red_uri = None
-        # Device ID (shows up on iDigi)
-        self.device_id = device_id
-        # Device Type for iDigi connection
-        self.device_type = device_type
         # Facility handlers - {facility_id: function pointer}
         self.fac = {}
         # Timeout interval (sec) for foll.
@@ -145,21 +139,25 @@ class EDP:
         self.rci_rxdata = ""
         # Function pointer to handle RCI requests
         self.rci_process_request = rci_process_request
-        # Mac address as binary packed data (48bits)
-        self.mac_bytes = struct.pack("!Q", mac)[-6:]
-        # vendor_id is the id of the device vendor.  One can be generated
-        # in iDigi by going to My Account -> Vendor Information.  It should
-        # be given as an integer value
-        self.vendor_id = vendor_id
-        # location of iDigi server certificate (for SSL connections)
-        self.idigi_certs_file = idigi_certs_file
     
+        # tell EDP to close and restart when any of these settings change
+        settings.add_callback('idigi_server', self.settings_change)
+        settings.add_callback('device_id', self.settings_change)
+        settings.add_callback('mac', self.settings_change)
+        settings.add_callback('device_type', self.settings_change)
+        settings.add_callback('vendor_id', self.settings_change)
+        settings.add_callback('idigi_certs_file', self.settings_change)
+        
+
+    def settings_change(self, new, old):
+        self.close()
+
     def run_forever(self):
         while(1):
             self.tick()
             time.sleep(0.1)
     
-    def close(self, nicely):
+    def close(self, nicely=0):
         self.rx_data = ""
         self.sock.close()
         if nicely > 0 and (self.state == self.EDP_STATE_OPEN or self.state == self.EDP_STATE_MSGHDR):
@@ -217,19 +215,16 @@ class EDP:
                 self.state = self.EDP_STATE_OPENING
                 self.sock.close()
     
-            
             elif self.state == self.EDP_STATE_REBOOT:
                 return -ENETRESET
-            
             
             elif self.state == self.EDP_STATE_CLOSED:
                 self.rxdata = ""
                 self.epoch = time.time()
-                self.uri = "en://" + self.hostname
+                self.uri = "en://" + settings['idigi_server']
                 self.red_uri = None
                 self.phase = self.PHASE_INIT
                 self.state = self.EDP_STATE_OPENING
-            
             
             elif self.state == self.EDP_STATE_OPENING:
                 try:
@@ -238,24 +233,25 @@ class EDP:
                     port = self.PORT
                     if ssl:
                         # ssl module supported, wrap socket in SSL socket
-                        if not os.path.exists(self.idigi_certs_file):
+                        idigi_certs_file = settings['idigi_certs_file']
+                        if not os.path.exists(idigi_certs_file):
                             # if the file doesn't exist in the cwd, try again in this folder's path.
-                            self.idigi_certs_file = os.path.join(os.path.dirname(__file__), self.idigi_certs_file)
-                        if os.path.exists(self.idigi_certs_file):
+                            idigi_certs_file = os.path.join(os.path.dirname(__file__), idigi_certs_file)
+                        if os.path.exists(idigi_certs_file):
                             # validate iDigi cert
                             validate = True
-                            self.sock = ssl.wrap_socket(self.sock, cert_reqs=ssl.CERT_REQUIRED, ca_certs=self.idigi_certs_file)
+                            self.sock = ssl.wrap_socket(self.sock, cert_reqs=ssl.CERT_REQUIRED, ca_certs=idigi_certs_file)
                             #NOTE: add check for local client cert here and add to SSL call.
                         else:
                             logger.warning("iDigi certificate not found, using SSL without certificate validation.")
                             self.sock = ssl.wrap_socket(self.sock, cert_reqs=ssl.CERT_NONE)
                             
                         port = self.SSL_PORT
-                    self.sock.connect((self.hostname, port))
+                    self.sock.connect((settings['idigi_server'], port))
                     if validate:
                         # make sure the hostname matches (ssl modeule doesn't do this
                         try:
-                            ssl_match_hostname.match_hostname(self.sock.getpeercert(), self.hostname)
+                            ssl_match_hostname.match_hostname(self.sock.getpeercert(), settings['idigi_server'])
                         except Exception, e:
                             self.sock.close()
                             raise e
@@ -270,7 +266,7 @@ class EDP:
                 self.epoch = time.time()
                 self.state = self.EDP_STATE_OPEN
                 
-                logger.info("my device ID is: %s" % str(self.device_id))
+                logger.info("my device ID is: %s" % str(settings['device_id']))
                 
                 try:
                     settings['ip_address'] = self.sock.getsockname()[0]
@@ -295,7 +291,6 @@ class EDP:
                 self.tx_intvl = EDP_KEEPALIVE_INTERVAL * EDP_KEEPALIVE_WAIT
                 self.rx_ka = time.time() + self.rx_intvl
                 self.tx_ka = time.time() + self.tx_intvl
-                
     
             elif self.state == self.EDP_STATE_MSGHDR or self.state == self.EDP_STATE_OPEN:
                 if time.time() > self.tx_ka:
@@ -377,7 +372,7 @@ class EDP:
                     # We're using simple identification here...
                     self.send_msg(EDP_PAYLOAD, "\x80\x00")
                     payload = "\x81" # Device ID
-                    payload += self._device_id_str()
+                    payload += self._device_id_str(settings['device_id'])
                     self.send_msg(EDP_PAYLOAD, payload)
 
                     # Connection URI
@@ -395,15 +390,15 @@ class EDP:
                     self.phase = self.PHASE_DISCOVERY
                     payload = "\x00" # Security layer payload
                     
-                    if self.vendor_id:
+                    if settings.get('vendor_id'):
                         # Send Vendor ID (needs to be done before type)
                         payload = "\x06"
-                        payload += struct.pack("!I", self.vendor_id)
+                        payload += struct.pack("!I", settings['vendor_id'])
                         self.send_msg(EDP_PAYLOAD, payload)
                     
                     payload += "\x04" # Device type discovery message
-                    payload += struct.pack("!H", len(self.device_type))
-                    payload += self.device_type
+                    payload += struct.pack("!H", len(settings['device_type']))
+                    payload += settings['device_type']
                     self.send_msg(EDP_PAYLOAD, payload)
 
                     # Initialization: send a few odd messages
@@ -421,7 +416,7 @@ class EDP:
                     # append IP
                     IP_list = [int(num) for num in socket.gethostbyname(socket.gethostname()).split(".")]
                     payload += struct.pack("!BBBBB", IP_list[0], IP_list[1], IP_list[2], IP_list[3], 0x01)
-                    payload += self.mac_bytes
+                    payload += struct.pack("!Q", settings['mac'])[-6:]
                     self.send_fac(EDP_FACILITY_CONN_CONTROL, payload)
                     
                     # Announce RCI compression.
@@ -544,10 +539,10 @@ class EDP:
         logger.error("%s , aborting connection" % (errmsg))
         self.close(0)
 
-    def _device_id_str(self):
+    def _device_id_str(self, device_id):
         hex_str = ""
         device_str = ""
-        for ch in self.device_id:
+        for ch in device_id:
             if ch in string.hexdigits:
                 hex_str += ch
         while len(hex_str):

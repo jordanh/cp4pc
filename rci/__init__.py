@@ -176,6 +176,7 @@ class HTTPHandler(threading.Thread):
     
     def run(self):
         while(1):
+            #NOTE: we take no action if the local port is changed dynamically
             local_port = settings.get('local_port')
             if not local_port:
                 time.sleep(1)
@@ -268,11 +269,5 @@ rci_tree.attach(RciDoCommand()
 
 rci_handler = RCIHandler(rci_tree)
 # Create EDP object - will connect to iDigi and has a callback for RCI requests
-edp_client = edp.EDP(device_id=settings['device_id'], 
-                     device_type=settings['device_type'], 
-                     host=settings['idigi_server'], 
-                     mac=settings['mac'], 
-                     rci_process_request=process_request, 
-                     vendor_id=settings.get('vendor_id', None), 
-                     idigi_certs_file=settings.get('idigi_certs_file', ''))
+edp_client = edp.EDP(rci_process_request=process_request)
 thread.start_new_thread(edp_client.run_forever, ())
