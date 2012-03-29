@@ -31,7 +31,7 @@ from simulator_settings import settings
 
 
 __all__ = ['add_rci_callback', 'process_request', 'stop_rci_callback', #standard Digi functions 
-           'set_wsgi_handler'] # extra functions for running on a PC
+           'set_wsgi_handler', 'connected'] # extra functions for running on a PC
 
 # set up logger
 logger = logging.getLogger("RCI")
@@ -164,6 +164,10 @@ def process_request(request):
 def set_wsgi_handler(handler):
     global http_server
     http_server.set_handler(handler)
+
+def connected():
+    global edp_client
+    return edp_client.state in [edp.EDP.EDP_STATE_OPEN, edp.EDP.EDP_STATE_MSGHDR]
 
 #===============================================================================
 # Helper classes and functions
