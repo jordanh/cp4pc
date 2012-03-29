@@ -25,7 +25,7 @@ except:
     logger.warning("SSL module not support, using insecure connection to iDigi.")
 
 # frequency to retry connections to iDigi server
-RECONNECT_TIME = 60
+RECONNECT_TIME = 5
 
 # Basic, comm layer types.
 EDP_VERSION         = 0x0004
@@ -150,11 +150,14 @@ class EDP:
         
 
     def settings_change(self, new, old):
-        self.close()
+        self.close() #TODO: this will cause issues with multiple threads
 
     def run_forever(self):
         while(1):
-            self.tick()
+            try:
+                self.tick()
+            except:
+                pass
             time.sleep(0.1)
     
     def close(self, nicely=0):
