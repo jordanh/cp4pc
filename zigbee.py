@@ -789,6 +789,21 @@ class XBee:
         
         self.lqi_cluster = ZDO_Mgmt_Lqi_cluster_client(self)
         self.device_annce_cluster = ZDO_Device_annce_cluster_server(self.device_announce_handler)
+
+    def close_serial(self):
+        global com_port_opened
+        try:
+            _global_lock.acquire(True) # make sure other operations aren't happening
+            if self.serial:
+                self.serial.close()
+            self.serial = None
+            self.rx_buffer = ""
+            self.node_list = []
+            #NOTE: leaving any messages that had been completely received
+            com_port_opened = False  
+        finally:
+            _global_lock.release()
+
         
     def register_endpoint(self, endpoint_id):
         "Registers an endpoint to save messages for"
@@ -1046,11 +1061,11 @@ class XBee:
         self.send(message)
         return True
     
-    def ddo_get_param(self, addr_extended, id, timeout=1, order=False):
+    def ddo_get_param(self, addr_extended, id, timeout=1, order=False, force_com=False):
         "Get a Digi Device Objects parameter value (only local address currently supported)"
         _global_lock.acquire(True)
         try:
-            if not com_port_opened: #a global
+            if not force_com and not com_port_opened: #a global
                 raise Exception("ddo_get_param: serial port not open")
             # check format of id
             if not isinstance(id, str):
@@ -1800,24 +1815,41 @@ import simulator_settings
 ran_first_time = False
 
 def open_com_thread():
-    global com_port_opened  #doesn't need a lock since it cannot be set back to False
+    global com_port_opened
     global ran_first_time
+    global default_xbee
     while not com_port_opened:
         try:
             xbee_serial_port = serial.Serial(simulator_settings.settings["com_port"], simulator_settings.settings["baud"], rtscts = 1)
             time.sleep(.25) # give a little time to let the XBee empty it's serial buffers
             xbee_serial_port.flushInput() #get rid of anything the XBee had stored up
             default_xbee.serial = xbee_serial_port
+            default_xbee.ddo_get_param(None, "VR", force_com=True) #make sure the serial port connects to an XBee
             com_port_opened = True  #set globals
             ran_first_time = True
         except Exception, e:
             if not ran_first_time:
-                print "Exception while creating serial port:", e
-            ran_first_time = True
-            time.sleep(10)  #retry opening COM port every ten seconds
+                print "Exception while creating serial port (%s, %s): %s" % (simulator_settings.settings.get('com_port', 'No COM'), simulator_settings.settings.get('baud', 'no baud'), e)
+                ran_first_time = True
+            time.sleep(.5)  #try opening the serial port again
     default_xbee.get_node_list(refresh=True, blocking=False) #kick off discovery of nodes on network            
     print "Serial port for XBee opened successfully"
-    
+
+def com_port_changes(new_value, old_value):
+    global com_port_opened
+    global ran_first_time
+    global default_xbee
+    if com_port_opened:
+        #NOTE: at this point, open_com_thread should NOT be running.
+        # close the com port
+        default_xbee.close_serial()
+        ran_first_time = False # we should reprint an error if the serial port settings don't work
+        thread.start_new_thread(open_com_thread, ())
+
 thread.start_new_thread(open_com_thread, ())
-while not ran_first_time:
-    time.sleep(0.1) #simple busy wait for first init attempt to complete; should not take very long; admittedly kludgey
+
+simulator_settings.settings.add_callback('com_port', com_port_changes)
+simulator_settings.settings.add_callback('baud', com_port_changes)
+
+#TODO: why is this here?
+time.sleep(0.1) #simple busy wait for first init attempt to complete; should not take very long; admittedly kludgey
