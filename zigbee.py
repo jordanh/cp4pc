@@ -1572,7 +1572,7 @@ def xbee_select(rlist, wlist, xlist, timeout = None):
 
     # use the original select if no xbee sockets
     if not len(rlist_xbee) and not len(wlist_xbee): 
-        return original_select(rlist_nonxbee, wlist_nonxbee, xlist_nonxbee)
+        return original_select(rlist_nonxbee, wlist_nonxbee, xlist_nonxbee, timeout)
     
     # flag if there are any non_xbee sockets
     nonxbee_socket = len(rlist_nonxbee) or len(wlist_nonxbee) or len(xlist_nonxbee)
