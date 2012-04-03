@@ -30,11 +30,7 @@ import threading
 from simulator_settings import settings
 
 # set up logger
-logger = logging.getLogger("ADDP")
-stderr_handler = logging.StreamHandler()
-stderr_formatter = logging.Formatter("[%(asctime)s] %(levelname)s ADDP: %(message)s", "%a %b %d %H:%M:%S %Y")
-stderr_handler.setFormatter(stderr_formatter)
-logger.addHandler(stderr_handler)
+logger = logging.getLogger("addp")
 logger.setLevel(logging.INFO)
 
 ADDP_COOKIE = 0x44494749        # 'D', 'I', 'G', 'I'
