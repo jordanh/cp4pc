@@ -135,7 +135,7 @@ class ADDP(threading.Thread):
     def setup_socks(self):
         # populate list of sockets
         ip_list = [] #use this to remove sockets that are no longer active.
-        for interface_tuple in socket.getaddrinfo('', None, socket.AF_INET, socket.SOCK_DGRAM, 0, socket.AI_PASSIVE): # family, socktype, proto, canonname, sockaddr
+        for interface_tuple in socket.getaddrinfo(None, MCAST_PORT, socket.AF_INET, socket.SOCK_DGRAM, 0, socket.AI_PASSIVE): # family, socktype, proto, canonname, sockaddr
             ip_address = interface_tuple[4][0]
             ip_list.append(ip_address)
             if ip_address not in self.socks.values():

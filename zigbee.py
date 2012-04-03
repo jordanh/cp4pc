@@ -1795,7 +1795,7 @@ def getaddrinfo(host, port, family=0, socktype=0, proto=0, flags=0):
                           "(\\[?[0-9a-f]{4}\\]?!)", re.IGNORECASE)
 
 
-    if af_xb_re.match(host) is not None:
+    if host and af_xb_re.match(host) is not None:
         return [(socket.AF_XBEE, socket.SOCK_DGRAM,
                 socket.XBS_PROT_TRANSPORT, host,
                 (host, port, 0, 0))]
