@@ -26,9 +26,7 @@
 
 # Requirements:
 # Must have pySerial and associated libraries (win32 module for Windows)
-# Serial connection to xbee must be configured with following commands:
-#    zigbee.default_xbee.serial = serial.Serial("COM#", 115200, rtscts = 0)
-#    zigbee.ddo_set_param("", "AO", chr(1)) # get explicit messages
+# Serial connection to XBee must be configured in simulator_settings ('com_port' and 'baud').
 # XBee must be API mode firmware.  ZB, ZNet2.5 or Smart Energy.
 
 # Limitations:
@@ -96,7 +94,6 @@ def MAC_to_address_string(MAC_address, num_bytes = 8):
         
 def address_string_to_MAC(address_string):
     "Convert an address string to a MAC address"
-    MAC_address = 0
     if address_string[0] == "[":
         return int("0x" + string.replace(address_string[1:-2], ":", ""), 16)
     else:
@@ -108,7 +105,6 @@ def short_to_address_string(short_address):
     
 def address_string_to_short(address_string):
     "Convert an address string to a short (network) address"
-    short_address = 0
     return int("0x" + address_string[1:-2], 16)
 
 
@@ -430,7 +426,6 @@ class API_Message:
         -1 when the buffer is not big enough(string not long enough)"""
         index = 0
         # make sure buffer starts with the Start Delimiter 0x7E
-        start_found = 0
         while len(buffer[index:]) >= 5:
             if ord(buffer[index]) != 0x7E:
                 index += 1
