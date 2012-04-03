@@ -51,7 +51,12 @@ import string
 import time
 import socket
 import select
+import logging
 from threading import RLock
+
+# set up logger
+logger = logging.getLogger("xbee")
+logger.setLevel(logging.INFO)
 
 MESH_TRACEBACK = False
 "Set this to true to enable printing of all ZigBee traffic"
@@ -160,7 +165,7 @@ class ZB_Data(API_Data):
         "Extract a XBee message from a 0x91 XBee frame cmd_data"
         if len(cmd_data) < 17:
             #Message too small, return error
-            print "Message too small"
+            logger.warn("Malformed message - too small")
             return -1
         source_address_64, source_address_16, source_endpoint, destination_endpoint, \
             cluster_id, profile_id, options = struct.unpack(">QHBBHHB", cmd_data[:17])
@@ -551,8 +556,7 @@ class ZDO_Device_annce_cluster_server:
                 # TTDO: should this be a record list?
                 self.callback(record)
             except Exception, e:
-                if MESH_TRACEBACK:
-                    print "ZDO_Device_annce_cluster_server: %s" % str(e)
+                logger.debug("Error: ZDO_Device_annce_cluster_server: %s" % str(e))
 
 
 class ZDO_Mgmt_Lqi_cluster_client:
@@ -839,40 +843,35 @@ class XBee:
             # dev_idea: could keep track of frame_id and the responses.
             if self.serial is not None and self.serial.isOpen():
                 self.serial.write(message.export())
-                #TTDO: debug only, this is a temporary hack until we can get hardware flow control working on the PC
-                #Without flow control it is possible to dump stuff onto the XBee faster than it can handle, so an
-                #artificial stall is added to counteract this.  It's retarded but for testing this will work.
-                #time.sleep(0.01) 
-                if MESH_TRACEBACK:
-                    debug_str = ""
-                    if message.API_ID == 0x11:  #TODO: temporary filter
-                        debug_str = "DEBUG TX: API ID = %s\n" % hex(message.API_ID)
-                        #frame ID
-                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[0:1]]) + "]:"
-                        #64-bit address        
-                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[1:9]]) + "]:"
-                        #16-bit address        
-                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[9:11]]) + "]:"
-                        #source endpoint      
-                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[11:12]]) + "]:"
-                        #destination endpoint      
-                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[12:13]]) + "]:"
-                        #cluster     
-                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[13:15]]) + "]:"
-                        #profile     
-                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[15:17]]) + "]:"
-                        #broadcast radius   
-                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[17:18]]) + "]:"
-                        #options   
-                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[18:19]]) + "]:"
-                        #payload     
-                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[19:]]) + "]"
-                        if debug_callback is not None:
-                            debug_callback(debug_str)
-                    else:
-                        debug_str = "DEBUG TX: API ID = %s\n" % hex(message.API_ID)
-                        debug_str += str([hex(ord(x)) for x in message.cmd_data])    
-                    print debug_str
+                debug_str = ""
+                if message.API_ID == 0x11:  #TODO: temporary filter
+                    debug_str = "TX: API ID = %s\n" % hex(message.API_ID)
+                    #frame ID
+                    debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[0:1]]) + "]:"
+                    #64-bit address        
+                    debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[1:9]]) + "]:"
+                    #16-bit address        
+                    debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[9:11]]) + "]:"
+                    #source endpoint      
+                    debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[11:12]]) + "]:"
+                    #destination endpoint      
+                    debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[12:13]]) + "]:"
+                    #cluster     
+                    debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[13:15]]) + "]:"
+                    #profile     
+                    debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[15:17]]) + "]:"
+                    #broadcast radius   
+                    debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[17:18]]) + "]:"
+                    #options   
+                    debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[18:19]]) + "]:"
+                    #payload     
+                    debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[19:]]) + "]"
+                    if MESH_TRACEBACK and debug_callback is not None:
+                        debug_callback(debug_str)
+                else:
+                    debug_str = "TX: API ID = %s\n" % hex(message.API_ID)
+                    debug_str += str([hex(ord(x)) for x in message.cmd_data])    
+                logger.debug(debug_str)
         finally:
             _global_lock.release()
         
@@ -949,33 +948,32 @@ class XBee:
                     if -message.API_ID in self.rx_messages:
                         # add to the message specific socket
                         self.rx_messages[-message.API_ID].append((message_buffer, ('[0000]!', 0, 0, 0, 0, 0)))
-                    if MESH_TRACEBACK:
-                        debug_str = ""                        
-                        if message.API_ID == 0x91:  #TTDO: temporary filter
-                            debug_str = "DEBUG RX: API ID = %s\n" % hex(message.API_ID)
-                            #64-bit address        
-                            debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[0:8]]) + "]:"
-                            #16-bit address
-                            debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[8:10]]) + "]:"
-                            #source endpoint
-                            debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[10:11]]) + "]:"
-                            #destination endpoint
-                            debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[11:12]]) + "]:"
-                            #cluster ID
-                            debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[12:14]]) + "]:"
-                            #profile ID
-                            debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[14:16]]) + "]:"
-                            #options
-                            debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[16:17]]) + "]:"
-                            #payload
-                            debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[17:]]) + "]"
-                            if debug_callback is not None:
-                                debug_callback(debug_str)
-                        else:
-                            debug_str = "DEBUG RX: API ID = %s\n" % hex(message.API_ID)
-                            debug_str += str([hex(ord(x)) for x in message.cmd_data])
-                            #traceback.print_stack(file=sys.stdout)    
-                        print debug_str
+
+                    debug_str = ""                        
+                    if message.API_ID == 0x91:  #TTDO: temporary filter
+                        debug_str = "RX: API ID = %s\n" % hex(message.API_ID)
+                        #64-bit address        
+                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[0:8]]) + "]:"
+                        #16-bit address
+                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[8:10]]) + "]:"
+                        #source endpoint
+                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[10:11]]) + "]:"
+                        #destination endpoint
+                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[11:12]]) + "]:"
+                        #cluster ID
+                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[12:14]]) + "]:"
+                        #profile ID
+                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[14:16]]) + "]:"
+                        #options
+                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[16:17]]) + "]:"
+                        #payload
+                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[17:]]) + "]"
+                        if MESH_TRACEBACK and debug_callback is not None:
+                            debug_callback(debug_str)
+                    else:
+                        debug_str = "RX: API ID = %s\n" % hex(message.API_ID)
+                        debug_str += str([hex(ord(x)) for x in message.cmd_data])
+                    logger.debug(debug_str)
                         
                     if message.API_ID == ZB_Data.rx_id: # CMD ID for explicit receive
                         #extract the zb_data
@@ -1037,10 +1035,7 @@ class XBee:
                     else:
                         pass
                         # we are currently not handling this message type
-                        #DEBUG ONLY!
-                        #print "DEBUG: API ID = %s" % hex(message.API_ID)
-                        #print [hex(ord(x)) for x in message.cmd_data]
-                        #pass
+                        logger.debug("Not handling API message with ID %d" % hex(message.API_ID))
         finally:
             _global_lock.release()
         return None
@@ -1829,11 +1824,11 @@ def open_com_thread():
             ran_first_time = True
         except Exception, e:
             if not ran_first_time:
-                print "Exception while creating serial port (%s, %s): %s" % (simulator_settings.settings.get('com_port', 'No COM'), simulator_settings.settings.get('baud', 'no baud'), e)
+                logger.error("Exception while creating serial port (%s, %s): %s" % (simulator_settings.settings.get('com_port', 'No COM'), simulator_settings.settings.get('baud', 'no baud'), e))
                 ran_first_time = True
             time.sleep(.5)  #try opening the serial port again
     default_xbee.get_node_list(refresh=True, blocking=False) #kick off discovery of nodes on network            
-    print "Serial port for XBee opened successfully"
+    logger.info("Serial port for XBee opened successfully (%s, %s)" % (simulator_settings.settings.get('com_port', 'No COM'), simulator_settings.settings.get('baud', 'no baud')))
 
 def com_port_changes(new_value, old_value):
     global com_port_opened
