@@ -1,9 +1,3 @@
-README
-======
-- Require Python 2.5 or later.
-- List PySerial requirement.
-- May also have GUI requirement
-
 Configuration
 =============
 - Create a single global settings location (currently simulator_settings.py)
@@ -35,10 +29,16 @@ ZigBee
 
 GUI
 ===
-- Evaluate wxPython and PyQt as options.  Which is better for this project?
-- Connection tab with various settings
-- logs tab
-- extra tabs for other stuff
+- Current plan is to create webpage as GUI.
+- XIG interface
+- simulated XIG client
+
+XIG
+===
+- local ip address isn't valid until after iDigi connection completes.
+- turn all of the prints into logging
+- do redirect on http error code 300s
+- store mac/eui-64/ip addresses as an int
 
 Mac
 ===
