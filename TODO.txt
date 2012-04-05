@@ -34,8 +34,7 @@ GUI
 XIG
 ===
 - local ip address isn't valid until after iDigi connection completes.
-- turn all of the prints into logging
-- do redirect on http error code 300s
+- turn all of the prints into logging (finish)
 - store mac/eui-64/ip addresses as an int
 
 Mac
