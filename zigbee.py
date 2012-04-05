@@ -1814,6 +1814,7 @@ def open_com_thread():
     while not com_port_opened:
         try:
             xbee_serial_port = serial.Serial(simulator_settings.settings["com_port"], simulator_settings.settings["baud"], rtscts = 1)
+            xbee_serial_port.writeTimeout = 1 # 1 second timeout for writes
             xbee_serial_port.flushInput() #get rid of anything the XBee had stored up
             default_xbee.serial = xbee_serial_port
             default_xbee.ddo_get_param(None, "VR", force_com=True) #make sure the serial port connects to an XBee
