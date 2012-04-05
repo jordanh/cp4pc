@@ -113,7 +113,7 @@ if 'mac' not in settings:
 settings.setdefault('version', "0.0.0") #I'd recommend keeping this format
 
 # serial port settings for XBee
-settings.setdefault('com_port', 'COM6') #default to first serial port.
+settings.setdefault('com_port', 'COM1') #default to first serial port.
 settings.setdefault('baud', 115200) #should the default be 9600?
 
 # iDigi Settings
