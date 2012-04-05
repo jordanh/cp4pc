@@ -1811,7 +1811,6 @@ def open_com_thread():
     while not com_port_opened:
         try:
             xbee_serial_port = serial.Serial(simulator_settings.settings["com_port"], simulator_settings.settings["baud"], rtscts = 1)
-            time.sleep(.25) # give a little time to let the XBee empty it's serial buffers
             xbee_serial_port.flushInput() #get rid of anything the XBee had stored up
             default_xbee.serial = xbee_serial_port
             default_xbee.ddo_get_param(None, "VR", force_com=True) #make sure the serial port connects to an XBee
@@ -1840,6 +1839,6 @@ thread.start_new_thread(open_com_thread, ())
 
 simulator_settings.settings.add_callback('com_port', com_port_changes)
 simulator_settings.settings.add_callback('baud', com_port_changes)
-
-#TODO: why is this here?
-time.sleep(0.1) #simple busy wait for first init attempt to complete; should not take very long; admittedly kludgey
+while 1:
+    if ran_first_time == True:
+        break
