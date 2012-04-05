@@ -1578,6 +1578,8 @@ def xbee_select(rlist, wlist, xlist, timeout = None):
             if timeout is not None:
                 time.sleep(min(SELECT_SLEEP_TIME,
                                abs(start_time + timeout - time.time())))
+            else:
+                time.sleep(SELECT_SLEEP_TIME)
             
         # check original sockets
         if nonxbee_socket:
