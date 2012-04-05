@@ -1839,6 +1839,7 @@ thread.start_new_thread(open_com_thread, ())
 
 simulator_settings.settings.add_callback('com_port', com_port_changes)
 simulator_settings.settings.add_callback('baud', com_port_changes)
-while 1:
-    if ran_first_time == True:
-        break
+
+# wait for the open_com_thread to run through the first time and try to open a COM port.
+while not ran_first_time:
+    time.sleep(0.001)
