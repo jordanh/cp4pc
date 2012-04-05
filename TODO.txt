@@ -1,9 +1,6 @@
 Configuration
 =============
-- Create a single global settings location (currently simulator_settings.py)
-- Integrate settings with the xig_config.py file?
-- Try to keep location of settings to a minimum (XBee, RCI, and ADDP - only three places?)
-- Store settings in JSON file (including MAC address and device ID).
+- print warning if not running Python 2.7
 
 ADDP
 ====
@@ -23,6 +20,7 @@ RCI
 - Edit query_settings and query_state so developer.idigi.com lists useful information for Device Properties.
 - Make improvements to local web server feature.
 - Fully support the do_command target "zigbee"?
+- Fix descriptors! do_command targets are not being discovered.
 
 ZigBee
 ======
