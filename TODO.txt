@@ -18,7 +18,6 @@ EDP
 RCI
 ===
 - Edit query_settings and query_state so developer.idigi.com lists useful information for Device Properties.
-- Make improvements to local web server feature.
 - Fully support the do_command target "zigbee"?
 - Fix descriptors! do_command targets are not being discovered.
 
@@ -27,7 +26,6 @@ ZigBee
 
 GUI
 ===
-- Current plan is to create webpage as GUI.
 - XIG interface
 - simulated XIG client
 
@@ -37,10 +35,14 @@ XIG
 - turn all of the prints into logging (finish)
 - store mac/eui-64/ip addresses as an int
 
+Windows
+=======
+- working with Python 2.7
+
 Mac
 ===
-- How do people typically install Python on a Mac?
-- test
+- works with Python 2.7
+- create an executable
 
 Linux
 =====
