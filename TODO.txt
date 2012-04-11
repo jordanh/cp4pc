@@ -28,6 +28,12 @@ GUI
 ===
 - XIG interface
 - simulated XIG client
+- color the iDigi and XBee status (red/green).
+- add directions under XBee and iDigi sections
+- add a help/getting started tab on top.
+- show power button as disabled when polling fails.
+- lots of errors when XBee not configured correctly.
+- setup for Windows needs to copy non-Python files to dist directory.  Should also create Zip.
 
 XIG
 ===
