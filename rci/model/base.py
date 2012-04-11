@@ -235,6 +235,10 @@ class BranchNode(Node):
             else:
                 # ERROR if we don't match a child?
                 pass
+        if not child_descriptor_xml:
+            # this is the target node, return child descriptors
+            for child in self:
+                child_descriptor_xml += child.descriptor_xml(xml_node)
         return child_descriptor_xml
 
     def descriptor_xml(self, xml_node):
