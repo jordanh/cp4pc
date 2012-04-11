@@ -123,6 +123,7 @@ class ADDP(threading.Thread):
     
     def __init__(self):
         threading.Thread.__init__(self)
+        threading.Thread.setDaemon(self,True)
         # create multicast sockets to listen for ADDP requests
         self.socks = {} # dict of {socket: ip}
         self.setup_socks()

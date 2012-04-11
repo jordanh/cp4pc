@@ -172,6 +172,7 @@ def connected():
 class HTTPHandler(threading.Thread):
     def __init__(self, handler = None):
         threading.Thread.__init__(self)
+        threading.Thread.setDaemon(self,True)
         self.handler = handler # will process other HTTP requests
     
     def run(self):
