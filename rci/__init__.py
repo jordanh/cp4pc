@@ -24,6 +24,7 @@ from controller.filesystem import FileSystemTarget
 # ZigBee handlers - initialized at bottom of file
 from controller.zigbee import ZigbeeTarget
 
+import xbee
 import edp
 import addp
 
@@ -245,6 +246,9 @@ rci_tree.attach(RciState()
     )
     .attach(BranchNode('boot_stats', 'Primary interface')
         .attach(SimpleLeafNode('ip', dtype=DTYPE.IPV4, desc='IP Address', accessor=create_accessor('ip_address', '0.0.0.0')))
+    )
+    .attach(BranchNode('zigbee_state', 'Gateway XBee')
+        .attach(SimpleLeafNode('gateway_addr', dtype=DTYPE.XBEE_EXT_ADDR, desc='XBee extended address', accessor=lambda: ':'.join("%02x" % ord(x) for x in xbee.ddo_get_param(None, 'SH')+xbee.ddo_get_param(None, 'SL'))))
     )
 )
 #-- RCI Settings --#

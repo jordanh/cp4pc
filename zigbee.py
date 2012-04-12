@@ -480,7 +480,7 @@ class Conversation:
     """Default timeout period for waiting for response for conversation"""
     
     def __init__(self, frame, callback = None, timeout_callback = None, timeout = None, extra_data = None):
-        self.start_time = time.clock()
+        self.start_time = time.time()
         self.active = True  #will switch to false once this conversation has finished
         self.frame = frame
         #The address attribute is primarily used in error reporting.
@@ -502,7 +502,7 @@ class Conversation:
         return False
         
     def tick_sec(self):
-        if (time.clock() - self.start_time > self.timeout):
+        if (time.time() - self.start_time > self.timeout):
             # we timed out on the response
             self.active = False
             if self.timeout_callback is not None:
@@ -1079,8 +1079,8 @@ class XBee:
             # wait to receive response
             AT_frame_id = message.api_data.frame_id
             at_response = None
-            start_time = time.clock()
-            while start_time + timeout > time.clock():
+            start_time = time.time()
+            while start_time + timeout > time.time():
                 at_response = self.read_messages(AT_frame_id)
                 if at_response is not None:
                     break
@@ -1134,8 +1134,8 @@ class XBee:
             # wait to receive response
             AT_frame_id = message.api_data.frame_id
             at_response = None
-            start_time = time.clock()
-            while start_time + timeout > time.clock():
+            start_time = time.time()
+            while start_time + timeout > time.time():
                 at_response = self.read_messages(AT_frame_id)
                 if at_response is not None:
                     break
@@ -1197,8 +1197,8 @@ class XBee:
             # wait to receive response
             AT_frame_id = message.api_data.frame_id
             at_response = None
-            start_time = time.clock()
-            while start_time + timeout > time.clock():
+            start_time = time.time()
+            while start_time + timeout > time.time():
                 at_response = self.read_messages(AT_frame_id)
                 if at_response is not None:
                     break
@@ -1228,8 +1228,8 @@ class XBee:
                 # send request to own neighbor table to start discovery
                 for node in self.node_list:
                     LQI_aggregator(self.lqi_cluster, node.addr_extended, 0, self._LQI_callback)
-                start_time = time.clock()
-                while time.clock() < start_time + 3: #NOTE: used to be 6.625 (as measured on CPX2)
+                start_time = time.time()
+                while time.time() < start_time + 3: #NOTE: used to be 6.625 (as measured on CPX2)
                     self.read_messages()
                     if not blocking:
                         break
@@ -1258,8 +1258,8 @@ class XBee:
 #            # wait to receive responses
 #            AT_frame_id = message.api_data.frame_id
 #            at_response = None
-#            start_time = time.clock()
-#            while start_time + node_discovery_timeout > time.clock():
+#            start_time = time.time()
+#            while start_time + node_discovery_timeout > time.time():
 #                at_response = self.read_messages(AT_frame_id)
 #                if at_response is not None:
 #                    # store responses for parsing later.
@@ -1523,7 +1523,7 @@ def xbee_select(rlist, wlist, xlist, timeout = None):
 
     start_time = None
     if timeout is not None:
-        start_time = time.clock()
+        start_time = time.time()
 
     # various list variables
     rlist_nonxbee = []
@@ -1569,7 +1569,7 @@ def xbee_select(rlist, wlist, xlist, timeout = None):
     
     # loop over xbee and non-xbee sockets
     first_loop = True
-    while first_loop or timeout is None or start_time + timeout >= time.clock():
+    while first_loop or timeout is None or start_time + timeout >= time.time():
         if first_loop:
             # immediately check for matches on the first loop
             first_loop = False
@@ -1577,7 +1577,9 @@ def xbee_select(rlist, wlist, xlist, timeout = None):
             # on subsequent loops, sleep between polls.
             if timeout is not None:
                 time.sleep(min(SELECT_SLEEP_TIME,
-                               abs(start_time + timeout - time.clock())))
+                               abs(start_time + timeout - time.time())))
+            else:
+                time.sleep(SELECT_SLEEP_TIME)
             
         # check original sockets
         if nonxbee_socket:
@@ -1592,6 +1594,7 @@ def xbee_select(rlist, wlist, xlist, timeout = None):
             finally:
                 _global_lock.release()  
         # xbee sockets are always ready for write
+        #TODO: check to make sure serial port is open and ready to go.
         wlist_out.extend(wlist_xbee)
     
         # check for any matches
@@ -1811,6 +1814,7 @@ def open_com_thread():
     while not com_port_opened:
         try:
             xbee_serial_port = serial.Serial(simulator_settings.settings["com_port"], simulator_settings.settings["baud"], rtscts = 1)
+            xbee_serial_port.writeTimeout = 1 # 1 second timeout for writes
             xbee_serial_port.flushInput() #get rid of anything the XBee had stored up
             default_xbee.serial = xbee_serial_port
             default_xbee.ddo_get_param(None, "VR", force_com=True) #make sure the serial port connects to an XBee
@@ -1839,6 +1843,7 @@ thread.start_new_thread(open_com_thread, ())
 
 simulator_settings.settings.add_callback('com_port', com_port_changes)
 simulator_settings.settings.add_callback('baud', com_port_changes)
-while 1:
-    if ran_first_time == True:
-        break
+
+# wait for the open_com_thread to run through the first time and try to open a COM port.
+while not ran_first_time:
+    time.sleep(0.001)

@@ -131,6 +131,8 @@ class Node(object):
         """Return a representation of this node in XML form"""
         return self._xml_tag() #TODo: should include attributes?
 
+    def dscr_avail(self):
+        return None
 
 class BranchNode(Node):
     """A node that has only children (no data)
@@ -145,7 +147,7 @@ class BranchNode(Node):
     # optional descriptor attributes
     attrs = None
     access = None
-    dscr_avail = None
+    #dscr_avail = None
     dformat = None
     errors = None
 
@@ -235,6 +237,10 @@ class BranchNode(Node):
             else:
                 # ERROR if we don't match a child?
                 pass
+        if not child_descriptor_xml:
+            # this is the target node, return child descriptors
+            for child in self:
+                child_descriptor_xml += child.descriptor_xml(xml_node)
         return child_descriptor_xml
 
     def descriptor_xml(self, xml_node):
@@ -243,8 +249,8 @@ class BranchNode(Node):
             'element': self.name,
             'desc': self.desc or ''
         }
-        if self.dscr_avail is not None:
-            attrs['dscr_avail'] = self.desr_avail
+        if self.dscr_avail():
+            attrs['dscr_avail'] = self.dscr_avail()
         if self.access is not None:
             attrs['access'] = self.access
         if self.dformat is not None:
@@ -277,6 +283,12 @@ class BranchNode(Node):
             body=''.join(child.toxml() for child in self),
             attributes=attributes)
 
+    def dscr_avail(self):
+        for child in self:
+            if isinstance(child, BranchNode):
+                # if we have a BranchNode child, then we can support generating a descriptor
+                return True
+        return False
 
 class TargetNode(BranchNode):
     """A Node that is used for do_command."""
@@ -315,6 +327,8 @@ class TargetNode(BranchNode):
                     pass #TODO: return an error when there is an unsupported command
             return ret
        
+    def dscr_avail(self):
+        return True
 
 class LeafNode(Node):
     """A Node that has no children (just data)
@@ -431,10 +445,12 @@ class SimpleLeafNode(LeafNode):
     def toxml(self, attributes=None):
         # NOTE: parameter attributes is ignored. 
         if self.accessor is not None:
-            value = self.accessor()
-            if isinstance(value, tuple) or isinstance(value, list):
-                return self._xml_tag(body=str(value[0]), attributes=value[1])
-            else:
-                return self._xml_tag(body=str(value))
-        else:
-            return self._xml_tag()
+            try:
+                value = self.accessor()
+                if isinstance(value, tuple) or isinstance(value, list):
+                    return self._xml_tag(body=str(value[0]), attributes=value[1])
+                else:
+                    return self._xml_tag(body=str(value))
+            except:
+                pass
+        return self._xml_tag()

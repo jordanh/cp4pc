@@ -4,12 +4,17 @@ import traceback
 
 
 class DeviceRoot(BranchNode):
-
+    
+    desc = "Remote Command Interface request"
+    
     def __init__(self):
-        BranchNode.__init__(self, "/")
+        BranchNode.__init__(self, "rci_request")
 
     def descriptor_xml(self, xml_node):
-        return self.child_descriptors(xml_node)
+        if not len(xml_node):
+            return BranchNode.descriptor_xml(self, xml_node)
+        else:
+            return self.child_descriptors(xml_node)
 
 
 class RciSettings(BranchNode):
@@ -51,6 +56,8 @@ class RciDescriptor(BranchNode):
         """Handle xml under "query_descriptor" request and return a response"""
         return self._xml_tag(self.device_tree.descriptor_xml(xml_node))
 
+    def dscr_avail(self):
+        return True
 
 class RciDoCommand(BranchNode):
     desc = "Trigger some piece of functionality"
