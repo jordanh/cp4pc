@@ -20,6 +20,7 @@ RCI
 - Edit query_settings and query_state so developer.idigi.com lists useful information for Device Properties.
 - Fully support the do_command target "zigbee"?
 - Fix descriptors! do_command targets are not being discovered.
+- remove file management, unless root folder is specified.
 
 ZigBee
 ======
@@ -27,19 +28,23 @@ ZigBee
 GUI
 ===
 - XIG interface
-- simulated XIG client
-- color the iDigi and XBee status (red/green).
-- add directions under XBee and iDigi sections
-- add a help/getting started tab on top.
-- show power button as disabled when polling fails.
-- lots of errors when XBee not configured correctly.
+- show power button as disabled when polling fails.  Also, return from grey on reconnect.
 - setup for Windows needs to copy non-Python files to dist directory.  Should also create Zip.
+- XIG doesn't restart when XBee COM settings change.
+- idigi_data target doesn't work in console (XBee address '127.0.0.1' invalid).
+- add a README.TXT
+- logs:
+  - scroll lock
+  - clear
+  - filter? (http://dojotoolkit.org/reference-guide/1.7/dojox/grid/EnhancedGrid/plugins/Filter.html#dojox-grid-enhancedgrid-plugins-filter)
+  - save to file (http://dojotoolkit.org/reference-guide/1.7/dojox/grid/EnhancedGrid/plugins/Exporter.html#dojox-grid-enhancedgrid-plugins-exporter)
 
 XIG
 ===
 - local ip address isn't valid until after iDigi connection completes.
 - turn all of the prints into logging (finish)
 - store mac/eui-64/ip addresses as an int
+- Create .pro file for XBee
 
 Windows
 =======
