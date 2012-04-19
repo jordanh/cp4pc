@@ -1021,7 +1021,7 @@ class XBee:
                     else:
                         pass
                         # we are currently not handling this message type
-                        logger.debug("Not handling API message with ID %d" % hex(message.API_ID))
+                        logger.debug("Not handling API message with ID %02X" % message.API_ID)
         finally:
             _global_lock.release()
         return None
