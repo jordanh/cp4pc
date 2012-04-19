@@ -909,9 +909,11 @@ class XBee:
                 frame_id = message.api_data.frame_id 
                 self.tx_status[frame_id] = (transaction_id, source_endpoint)
         
-    def read_messages(self, AT_frame_id = 0):
+    def read_messages(self, AT_frame_id = 0, force_com=False):
         """Reads messages from the serial port, return message if it matches
         the AT_frame_id (meant to be used for AT commands)"""
+        if not force_com and not com_port_opened:
+            return None
         _global_lock.acquire(True)
         try:
             if self.serial is not None and self.serial.isOpen():
@@ -1072,7 +1074,7 @@ class XBee:
             at_response = None
             start_time = time.time()
             while start_time + timeout > time.time():
-                at_response = self.read_messages(AT_frame_id)
+                at_response = self.read_messages(AT_frame_id, force_com = force_com)
                 if at_response is not None:
                     break
             else:
