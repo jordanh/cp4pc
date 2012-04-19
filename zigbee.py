@@ -1803,6 +1803,7 @@ def open_com_thread():
     global ran_first_time
     global default_xbee
     while not com_port_opened:
+        xbee_serial_port = None
         try:
             xbee_serial_port = serial.Serial(simulator_settings.settings["com_port"], simulator_settings.settings["baud"], rtscts = 1)
             xbee_serial_port.writeTimeout = 1 # 1 second timeout for writes
@@ -1815,6 +1816,8 @@ def open_com_thread():
             if not ran_first_time:
                 logger.error("Exception while creating serial port (%s, %s): %s" % (simulator_settings.settings.get('com_port', 'No COM'), simulator_settings.settings.get('baud', 'no baud'), e))
                 ran_first_time = True
+            if xbee_serial_port:
+                xbee_serial_port.close()
             time.sleep(.5)  #try opening the serial port again
     default_xbee.get_node_list(refresh=True, blocking=False) #kick off discovery of nodes on network            
     logger.info("Serial port for XBee opened successfully (%s, %s)" % (simulator_settings.settings.get('com_port', 'No COM'), simulator_settings.settings.get('baud', 'no baud')))
