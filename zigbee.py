@@ -1825,6 +1825,7 @@ def com_port_changes(new_value, old_value):
     global default_xbee
     if com_port_opened:
         #NOTE: at this point, open_com_thread should NOT be running.
+        com_port_opened = False
         # close the com port
         default_xbee.close_serial()
         ran_first_time = False # we should reprint an error if the serial port settings don't work
