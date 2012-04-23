@@ -653,7 +653,7 @@ class NeighborTableDescriptorRecord:
             byte1,\
             byte2,\
             self.depth,\
-            self.lqi = struct.unpack("<QQHBBBB", buf)
+            self.lqi = struct.unpack("<QQHBBBB", buf[:22])
             
             self.device_type = byte1 & 0x03
             self.rx_on_when_idle = (byte1 & 0x0C) >> 2
