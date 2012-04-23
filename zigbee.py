@@ -662,6 +662,7 @@ class NeighborTableDescriptorRecord:
             
             self.addr_extended = MAC_to_address_string(self.addr_extended, 8)
             self.addr_short = short_to_address_string(self.addr_short)
+            return 22
         except Exception, e:
             raise Exception("Error: NeighborTableListRecord.extract() - %s" % e)
     
@@ -696,21 +697,15 @@ class Mgmt_Lqi_rsp:
         self.neighbor_table_list = neighbor_table_list
     
     def extract(self, buffer):
-        try:
-            self.status,\
-            self.neighbor_table_entries,\
-            self.start_index,\
-            neighbor_table_list_count = struct.unpack("<BBBB", buffer[0:4])
-            start= 4
-            end= start + 22 #22 bytes in a NeighborTable
-            for index in range(neighbor_table_list_count):
-                record = NeighborTableDescriptorRecord()
-                record.extract(buffer[start:end])
-                start = end
-                end = start + 22
-                self.neighbor_table_list.append(record)
-        except Exception, e:
-            raise Exception("Error: Mgmt_Lqi_rsp.extract() - %s" % e)
+        self.status = ord(buffer[0])
+        if self.status == 0: #SUCCESS 
+            self.neighbor_table_entries, self.start_index, neighbor_table_list_count = struct.unpack("<BBB", buffer[1:4])
+            if neighbor_table_list_count > 0:
+                offset = 4
+                for i in xrange(neighbor_table_list_count):
+                    record = NeighborTableDescriptorRecord()
+                    offset += record.extract(buffer[offset:])
+                    self.neighbor_table_list.append(record)
     
     def export(self):
         buffer = struct.pack("<BBBB",\
