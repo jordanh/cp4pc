@@ -499,10 +499,8 @@ class Conversation:
             if self.timeout_callback is not None:
                 self.timeout_callback(self)
             else:
-                
                 #TTDO: this is now an uncommon case; should we just print an error or still rely
                 #on a raise (and catch in tick_sec)?
-                 
                 #raise Exception("Conversation Timeout: Address = %s" % str(self.frame.address))
                 pass
 
@@ -1816,8 +1814,17 @@ def open_com_thread():
             if xbee_serial_port:
                 xbee_serial_port.close()
             time.sleep(.5)  #try opening the serial port again
+    if simulator_settings.settings.get("no_xbee_initialization", "False"):
+        # initialize some critical XBee settings on behalf of the user:
+        try:
+            default_xbee.ddo_set_param(None, "D6", 1)
+            default_xbee.ddo_set_param(None, "D7", 1)
+            default_xbee.ddo_set_param(None, "AO", 3)
+        except Exception, e:
+            logger.warning("unable initialize XBee DDO params: %s" % repr(e))
     default_xbee.get_node_list(refresh=True, blocking=False) #kick off discovery of nodes on network            
     logger.info("Serial port for XBee opened successfully (%s, %s)" % (simulator_settings.settings.get('com_port', 'No COM'), simulator_settings.settings.get('baud', 'no baud')))
+
 
 def com_port_changes(new_value, old_value):
     global com_port_opened
