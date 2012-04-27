@@ -13,7 +13,7 @@ import logging
 import thread
 import threading
 import time
-from wsgiref.simple_server import make_server
+from wsgiref.simple_server import make_server, WSGIRequestHandler
 import webob
 from webob.dec import wsgify
 
@@ -48,6 +48,14 @@ __all__ = ['add_rci_callback', 'process_request', 'stop_rci_callback', #standard
 logger = logging.getLogger("rci")
 logger.setLevel(logging.INFO)
 
+class RCIWSGIRequestHandler(WSGIRequestHandler):
+    # overridden from WSGIRequestHandler::BaseHTTPRequestHandler
+    def log_message(self, format, *args):
+        global logger
+        logger.debug("%s - - [%s] %s" %
+                         (self.address_string(),
+                          self.log_date_time_string(),
+                          format%args))
 
 class RCIHandler(object):
     """Manage the device tree and its mapping to rci requests"""
@@ -194,7 +202,7 @@ class HTTPHandler(threading.Thread):
                 time.sleep(1)
                 continue
             logger.info("Starting web server at http://localhost:%d" % local_port)
-            make_server('', local_port, self).serve_forever()
+            make_server('', local_port, self, handler_class=RCIWSGIRequestHandler).serve_forever()
     
     def set_handler(self, handler):
         self.handler = handler
