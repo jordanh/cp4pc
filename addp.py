@@ -21,7 +21,7 @@ import threading
 from simulator_settings import settings
 
 # set up logger
-logger = logging.getLogger("addp")
+logger = logging.getLogger("cp4pc.addp")
 logger.setLevel(logging.INFO)
 
 ADDP_COOKIE = 0x44494749        # 'D', 'I', 'G', 'I'

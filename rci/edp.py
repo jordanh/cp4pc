@@ -20,7 +20,7 @@ from errno import *
 from simulator_settings import settings
 
 # set up logger
-logger = logging.getLogger("edp")
+logger = logging.getLogger("cp4pc.edp")
 logger.setLevel(logging.INFO)
 
 ssl = None

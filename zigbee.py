@@ -44,7 +44,7 @@ import logging
 from threading import RLock
 
 # set up logger
-logger = logging.getLogger("xbee")
+logger = logging.getLogger("cp4pc.xbee")
 logger.setLevel(logging.INFO)
 
 MESH_TRACEBACK = False

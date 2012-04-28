@@ -45,7 +45,7 @@ __all__ = ['add_rci_callback', 'process_request', 'stop_rci_callback', #standard
            'set_wsgi_handler', 'connected'] # extra functions for running on a PC
 
 # set up logger
-logger = logging.getLogger("rci")
+logger = logging.getLogger("cp4pc.rci")
 logger.setLevel(logging.INFO)
 
 class RCIWSGIRequestHandler(WSGIRequestHandler):
