@@ -51,7 +51,7 @@ MESH_TRACEBACK = False
 "Set this to true to enable printing of all ZigBee traffic"
 
 # set parameters
-__all__ = ["ddo_get_param", "ddo_set_param", "getnodelist", "get_node_list", "register_joining_device", "_ready"]
+__all__ = ["ddo_get_param", "ddo_set_param", "getnodelist", "get_node_list", "register_joining_device"]
 
 # Globals
 "Set this to function that accepts string to get passed MESH_TRACEBACK data"
@@ -1871,10 +1871,6 @@ def com_port_changes(new_value, old_value):
             thread.start_new_thread(open_com_thread, ())
     finally:
         _com_mgmt_lock.release()
-
-def _ready():
-    global com_port_opened
-    return com_port_opened
 
 thread.start_new_thread(open_com_thread, ())
 
