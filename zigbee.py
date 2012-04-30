@@ -450,15 +450,15 @@ class API_Message:
 
 
 class ZDO_Frame:
-    def __init__(self, buffer = None, address = None):
+    def __init__(self, buf = None, address = None):
         """Parse frame and store the address, create blank frame if no buffer."""
         self.address = address
-        if buffer is None:
+        if buf is None:
             self.transaction_sequence_number = 0
             self.payload = ""
         else:
-            self.transaction_sequence_number = ord(buffer[0])
-            self.payload = buffer[1:]
+            self.transaction_sequence_number = ord(buf[0])
+            self.payload = buf[1:]
     
     def export(self):
         """Create frame as a string of bytes"""
@@ -933,7 +933,7 @@ class XBee:
                         self.rx_messages[-message.API_ID].append((message_buffer, ('[0000]!', 0, 0, 0, 0, 0)))
 
                     debug_str = ""                        
-                    if message.API_ID == 0x91:  #TTDO: temporary filter
+                    if message.API_ID == 0x91:
                         debug_str = "RX: API ID = %s\n" % hex(message.API_ID)
                         #64-bit address        
                         debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[0:8]]) + "]:"
