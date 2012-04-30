@@ -44,14 +44,14 @@ import logging
 from threading import RLock
 
 # set up logger
-logger = logging.getLogger("xbee")
+logger = logging.getLogger("cp4pc.xbee")
 logger.setLevel(logging.INFO)
 
 MESH_TRACEBACK = False
 "Set this to true to enable printing of all ZigBee traffic"
 
 # set parameters
-__all__ = ["ddo_get_param", "ddo_set_param", "getnodelist", "get_node_list", "register_joining_device"]
+__all__ = ["ddo_get_param", "ddo_set_param", "getnodelist", "get_node_list", "register_joining_device", "_ready"]
 
 # Globals
 "Set this to function that accepts string to get passed MESH_TRACEBACK data"
@@ -59,7 +59,8 @@ debug_callback = None
 com_port_opened = False #set to True when the COM port has been successfully opened (see bottom of this file)
 # PySerial calls will need to be protected from multiple threads:
 _global_lock = RLock()
-
+# A lock used to manage the com-port management threads:
+_com_mgmt_lock = RLock()
 
 def __register_with_socket_module(object_name):
     "Register object with socket module (add to __all__)"
@@ -415,29 +416,28 @@ class API_Message:
         """Extracts the message from a string
         returns number of bytes used on success
         -1 when the buffer is not big enough(string not long enough)"""
-        index = 0
-        # make sure buffer starts with the Start Delimiter 0x7E
-        while len(buffer[index:]) >= 5:
-            if ord(buffer[index]) != 0x7E:
-                index += 1
-            else:
-                # pull out length (MSB)
-                length = ord(buffer[index+1]) * 255 + ord(buffer[index + 2])
-                # make sure we have enough of the buffer to get the full message
-                if len(buffer[index:]) >= length + 4:
-                    # we have a full XBee message, lets extract it.
-                    self.length = length
-                    self.API_ID = ord(buffer[index + 3])
-                    self.cmd_data = buffer[index + 4: index + length + 3]
-                    if self.API_ID in self.API_IDs.keys():
-                        self.api_data = self.API_IDs[self.API_ID]()
-                    else:
-                        self.api_data = API_Data()
-                    self.api_data.extract(self.cmd_data)
-                    self.checksum = ord(buffer[index + length + 3])
-                    return len(self)
-                break
-        return -1
+        if len(buffer) < 5:
+            return -1
+        
+        # pull out length (MSB)
+        length = ord(buffer[1]) * 255 + ord(buffer[2])
+        
+        if len(buffer) < length + 4:
+            return -1
+
+        # we have a full XBee message, lets extract it.
+        self.length = length
+        self.API_ID = ord(buffer[3])
+        self.cmd_data = buffer[4:length+3]
+        if self.API_ID in self.API_IDs.keys():
+            self.api_data = self.API_IDs[self.API_ID]()
+        else:
+            self.api_data = API_Data()
+        self.api_data.extract(self.cmd_data)
+        self.checksum = ord(buffer[length + 3])
+
+        return len(self)
+
         
     def export(self, recalculate_checksum = 1):
         """Exports the message to a string, will recalculate checksum by default.
@@ -499,10 +499,8 @@ class Conversation:
             if self.timeout_callback is not None:
                 self.timeout_callback(self)
             else:
-                
                 #TTDO: this is now an uncommon case; should we just print an error or still rely
                 #on a raise (and catch in tick_sec)?
-                 
                 #raise Exception("Conversation Timeout: Address = %s" % str(self.frame.address))
                 pass
 
@@ -903,7 +901,112 @@ class XBee:
                 transaction_id = destination_address[5]
                 frame_id = message.api_data.frame_id 
                 self.tx_status[frame_id] = (transaction_id, source_endpoint)
+
+    def process_message(self, message, message_buffer, AT_frame_id = 0, force_com=False):
+        # pass data to XBS_PROT_XAPI sockets if applicable
+        if -0xFF in self.rx_messages:
+            # add to the generic message socket
+            self.rx_messages[-0xFF].append((message_buffer, ('[0000]!', 0, 0, 0, 0, 0)))
+        if -message.API_ID in self.rx_messages:
+            # add to the message specific socket
+            self.rx_messages[-message.API_ID].append((message_buffer, ('[0000]!', 0, 0, 0, 0, 0)))
+
+        debug_str = ""                        
+        if message.API_ID == 0x91:  #TTDO: temporary filter
+            debug_str = "RX: API ID = %s\n" % hex(message.API_ID)
+            #64-bit address        
+            debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[0:8]]) + "]:"
+            #16-bit address
+            debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[8:10]]) + "]:"
+            #source endpoint
+            debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[10:11]]) + "]:"
+            #destination endpoint
+            debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[11:12]]) + "]:"
+            #cluster ID
+            debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[12:14]]) + "]:"
+            #profile ID
+            debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[14:16]]) + "]:"
+            #options
+            debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[16:17]]) + "]:"
+            #payload
+            debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[17:]]) + "]"
+            if MESH_TRACEBACK and debug_callback is not None:
+                debug_callback(debug_str)
+        else:
+            debug_str = "RX: API ID = %s\n" % hex(message.API_ID)
+            debug_str += str([hex(ord(x)) for x in message.cmd_data])
+        logger.debug(debug_str)
         
+        if message.API_ID == ZB_Data.rx_id: # CMD ID for explicit receive
+            #extract the zb_data
+            zb_data = message.api_data
+            # make sure the address is registered, check with address = ""
+            local_endpoint = zb_data.destination_address[1]
+            
+            # check for Device Announce
+            if zb_data.destination_address[1] == 0 and\
+                zb_data.destination_address[2] == 0 and\
+                zb_data.destination_address[3] == 0x0013:
+                #print "ZDO Announce Message Received"
+                frame = ZDO_Frame(zb_data.payload, zb_data.source_address)                           
+                self.device_annce_cluster.handle_message(frame)                        
+            # check for LQI request
+            elif zb_data.destination_address[1] == 0 and\
+                zb_data.destination_address[2] == 0 and\
+                zb_data.destination_address[3] == 0x8031:
+                frame = ZDO_Frame(zb_data.payload, zb_data.source_address)                           
+                self.lqi_cluster.handle_message(frame)
+            
+            # check if a new remote device
+            if zb_data.destination_address[0]:
+                for node in self.node_list:
+                    if zb_data.destination_address[0] == node.addr_extended:
+                        break
+                else:
+                    self._new_node(zb_data.destination_address[0])
+                        
+            if local_endpoint in self.rx_messages:
+                if zb_data.source_address is None:
+                    pass
+                # create the tuple to store the message
+                recv_tuple = (zb_data.payload, zb_data.source_address)
+                #if endpoint is broadcast endpoint (0xFF), duplicate the message for all other endpoints
+                if local_endpoint == 0xFF:
+                    for endpoint_id in self.rx_messages:
+                        if endpoint_id != 0:    #but don't give the message to the ZDO endpoint  #TTDO: is this correct?
+                            self.rx_messages[endpoint_id].append(recv_tuple)
+                else:
+                    # add data to the message queue
+                    self.rx_messages[local_endpoint].append(recv_tuple)
+        elif message.API_ID == Local_AT_Data.rx_id: #cmd ID for local AT response
+            #extract the at_data
+            at_data = message.api_data
+            # check if this is the message we are waiting for
+            if at_data.frame_id == AT_frame_id:
+                return message
+        elif message.API_ID == Remote_AT_Data.rx_id: #cmd ID for remote AT response
+            #extract the at_data
+            at_data = message.api_data
+            # check if this is the message we are waiting for
+            if at_data.frame_id == AT_frame_id:
+                return message
+        elif message.API_ID == ZigBee_Tx_Status_Data.rx_id: #cmd ID for XBee Tx Status message
+            # match to 6th address parameter if enabled
+            # extract the tx_response
+            status_data = message.api_data
+            if status_data.frame_id in self.tx_status:
+                # Tx Status matches existing frame id, queue response in socket
+                transaction_id, endpoint_id = self.tx_status[status_data.frame_id]
+                delivery_status = chr(ZigBee_Tx_Status_Data.rx_id) + status_data.export()
+                tx_status_tuple = (delivery_status, ("[00:00:00:00:00:00:00:00]!", endpoint_id, 0xC105, 0x8B, 0, transaction_id))
+                self.rx_messages[endpoint_id].append(tx_status_tuple)                                        
+        else:
+            # we are currently not handling this message type
+            logger.debug("Not handling API message with ID %02X" % message.API_ID)
+
+        return None
+
+
     def read_messages(self, AT_frame_id = 0, force_com=False):
         """Reads messages from the serial port, return message if it matches
         the AT_frame_id (meant to be used for AT commands)"""
@@ -914,6 +1017,10 @@ class XBee:
             if self.serial is not None and self.serial.isOpen():
                 self.rx_buffer += self.serial.read(self.serial.inWaiting()) #read everything that is available
             while 1:
+                # sanitize buffer up to first candidate API frame:
+                s_idx = self.rx_buffer.find('\x7e')
+                if s_idx != -1:
+                    self.rx_buffer = self.rx_buffer[s_idx:]
                 message = API_Message() #create message and try to fill it from the serial port data.
                 status = message.extract(self.rx_buffer)
                 if status < 0:
@@ -924,107 +1031,16 @@ class XBee:
                 # received frame, remove from buffer
                 self.rx_buffer = self.rx_buffer[status:]
                 if message.is_valid():
-                    # pass data to XBS_PROT_XAPI sockets if applicable
-                    if -0xFF in self.rx_messages:
-                        # add to the generic message socket
-                        self.rx_messages[-0xFF].append((message_buffer, ('[0000]!', 0, 0, 0, 0, 0)))
-                    if -message.API_ID in self.rx_messages:
-                        # add to the message specific socket
-                        self.rx_messages[-message.API_ID].append((message_buffer, ('[0000]!', 0, 0, 0, 0, 0)))
-
-                    debug_str = ""                        
-                    if message.API_ID == 0x91:
-                        debug_str = "RX: API ID = %s\n" % hex(message.API_ID)
-                        #64-bit address        
-                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[0:8]]) + "]:"
-                        #16-bit address
-                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[8:10]]) + "]:"
-                        #source endpoint
-                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[10:11]]) + "]:"
-                        #destination endpoint
-                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[11:12]]) + "]:"
-                        #cluster ID
-                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[12:14]]) + "]:"
-                        #profile ID
-                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[14:16]]) + "]:"
-                        #options
-                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[16:17]]) + "]:"
-                        #payload
-                        debug_str += "[" + ", ".join(["%02X" %(ord(x)) for x in message.cmd_data[17:]]) + "]"
-                        if MESH_TRACEBACK and debug_callback is not None:
-                            debug_callback(debug_str)
-                    else:
-                        debug_str = "RX: API ID = %s\n" % hex(message.API_ID)
-                        debug_str += str([hex(ord(x)) for x in message.cmd_data])
-                    logger.debug(debug_str)
-                        
-                    if message.API_ID == ZB_Data.rx_id: # CMD ID for explicit receive
-                        #extract the zb_data
-                        zb_data = message.api_data
-                        # make sure the address is registered, check with address = ""
-                        local_endpoint = zb_data.destination_address[1]
-                        
-                        # check for Device Announce
-                        if zb_data.destination_address[1] == 0 and\
-                            zb_data.destination_address[2] == 0 and\
-                            zb_data.destination_address[3] == 0x0013:
-                            #print "ZDO Announce Message Received"
-                            frame = ZDO_Frame(zb_data.payload, zb_data.source_address)                           
-                            self.device_annce_cluster.handle_message(frame)                        
-                        # check for LQI request
-                        elif zb_data.destination_address[1] == 0 and\
-                            zb_data.destination_address[2] == 0 and\
-                            zb_data.destination_address[3] == 0x8031:
-                            frame = ZDO_Frame(zb_data.payload, zb_data.source_address)                           
-                            self.lqi_cluster.handle_message(frame)
-
-                        # check if a new remote device
-                        if zb_data.destination_address[0]:
-                            for node in self.node_list:
-                                if zb_data.destination_address[0] == node.addr_extended:
-                                    break
-                            else:
-                                self._new_node(zb_data.destination_address[0])
-                        
-                        if local_endpoint in self.rx_messages:
-                            if zb_data.source_address is None:
-                                pass
-                            # create the tuple to store the message
-                            recv_tuple = (zb_data.payload, zb_data.source_address)
-                            #if endpoint is broadcast endpoint (0xFF), duplicate the message for all other endpoints
-                            if local_endpoint == 0xFF:
-                                for endpoint_id in self.rx_messages:
-                                    if endpoint_id != 0:    #but don't give the message to the ZDO endpoint  #TTDO: is this correct?
-                                        self.rx_messages[endpoint_id].append(recv_tuple)
-                            else:
-                                # add data to the message queue
-                                self.rx_messages[local_endpoint].append(recv_tuple)
-                    elif message.API_ID == Local_AT_Data.rx_id: #cmd ID for local AT response
-                        #extract the at_data
-                        at_data = message.api_data
-                        # check if this is the message we are waiting for
-                        if at_data.frame_id == AT_frame_id:
-                            return message
-                    elif message.API_ID == Remote_AT_Data.rx_id: #cmd ID for remote AT response
-                        #extract the at_data
-                        at_data = message.api_data
-                        # check if this is the message we are waiting for
-                        if at_data.frame_id == AT_frame_id:
-                            return message
-                    elif message.API_ID == ZigBee_Tx_Status_Data.rx_id: #cmd ID for XBee Tx Status message
-                        # match to 6th address parameter if enabled
-                        # extract the tx_response
-                        status_data = message.api_data
-                        if status_data.frame_id in self.tx_status:
-                            # Tx Status matches existing frame id, queue response in socket
-                            transaction_id, endpoint_id = self.tx_status[status_data.frame_id]
-                            delivery_status = chr(ZigBee_Tx_Status_Data.rx_id) + status_data.export()
-                            tx_status_tuple = (delivery_status, ("[00:00:00:00:00:00:00:00]!", endpoint_id, 0xC105, 0x8B, 0, transaction_id))
-                            self.rx_messages[endpoint_id].append(tx_status_tuple)                                        
-                    else:
-                        pass
-                        # we are currently not handling this message type
-                        logger.debug("Not handling API message with ID %02X" % message.API_ID)
+                    try:
+                        return self.process_message(message, message_buffer, AT_frame_id, force_com)
+                    except Exception, e:
+                        logger.warning("exception during API message processing: %s" % str(e))
+                else:
+                    # Advance rx_buffer; useful in the case where ~~ appears in stream
+                    # unexpectedly. It's been seeon on OSX a few times; likely due to faulty
+                    # flow control. The message parser must advance in order to allow it to
+                    # continue.
+                    self.rx_buffer = self.rx_buffer[1:]
         finally:
             _global_lock.release()
         return None
@@ -1807,37 +1823,58 @@ def open_com_thread():
     global com_port_opened
     global ran_first_time
     global default_xbee
-    while not com_port_opened:
-        xbee_serial_port = None
-        try:
-            xbee_serial_port = serial.Serial(simulator_settings.settings["com_port"], simulator_settings.settings["baud"], rtscts = 1)
-            xbee_serial_port.writeTimeout = 1 # 1 second timeout for writes
-            xbee_serial_port.flushInput() #get rid of anything the XBee had stored up
-            default_xbee.serial = xbee_serial_port
-            default_xbee.ddo_get_param(None, "VR", force_com=True) #make sure the serial port connects to an XBee
-            com_port_opened = True  #set globals
-            ran_first_time = True
-        except Exception, e:
-            if not ran_first_time:
-                logger.error("Exception while creating serial port (%s, %s): %s" % (simulator_settings.settings.get('com_port', 'No COM'), simulator_settings.settings.get('baud', 'no baud'), e))
+    global _com_mgmt_lock
+    _com_mgmt_lock.acquire()
+    try:
+        while not com_port_opened:
+            xbee_serial_port = None
+            try:
+                xbee_serial_port = serial.Serial(simulator_settings.settings["com_port"], simulator_settings.settings["baud"], rtscts = 1)
+                xbee_serial_port.writeTimeout = 1 # 1 second timeout for writes
+                xbee_serial_port.flushInput() #get rid of anything the XBee had stored up
+                default_xbee.serial = xbee_serial_port
+                default_xbee.ddo_get_param(None, "VR", force_com=True) #make sure the serial port connects to an XBee
+                com_port_opened = True  #set globals
                 ran_first_time = True
-            if xbee_serial_port:
-                xbee_serial_port.close()
-            time.sleep(.5)  #try opening the serial port again
-    default_xbee.get_node_list(refresh=True, blocking=False) #kick off discovery of nodes on network            
-    logger.info("Serial port for XBee opened successfully (%s, %s)" % (simulator_settings.settings.get('com_port', 'No COM'), simulator_settings.settings.get('baud', 'no baud')))
+            except Exception, e:
+                if not ran_first_time:
+                    logger.error("Exception while creating serial port (%s, %s): %s" % (simulator_settings.settings.get('com_port', 'No COM'), simulator_settings.settings.get('baud', 'no baud'), e))
+                    ran_first_time = True
+                if xbee_serial_port:
+                    xbee_serial_port.close()
+                time.sleep(.5)  #try opening the serial port again
+        if simulator_settings.settings.get("no_xbee_initialization", "False"):
+            # initialize some critical XBee settings on behalf of the user:
+            try:
+                default_xbee.ddo_set_param(None, "D6", 1)
+                default_xbee.ddo_set_param(None, "D7", 1)
+                default_xbee.ddo_set_param(None, "AO", 3)
+            except Exception, e:
+                logger.warning("unable initialize XBee DDO params: %s" % repr(e))
+        default_xbee.get_node_list(refresh=True, blocking=False) #kick off discovery of nodes on network            
+        logger.info("Serial port for XBee opened successfully (%s, %s)" % (simulator_settings.settings.get('com_port', 'No COM'), simulator_settings.settings.get('baud', 'no baud')))
+    finally:
+        _com_mgmt_lock.release()
 
 def com_port_changes(new_value, old_value):
     global com_port_opened
     global ran_first_time
     global default_xbee
-    if com_port_opened:
-        #NOTE: at this point, open_com_thread should NOT be running.
-        com_port_opened = False
-        # close the com port
-        default_xbee.close_serial()
-        ran_first_time = False # we should reprint an error if the serial port settings don't work
-        thread.start_new_thread(open_com_thread, ())
+    global _com_mgmt_lock
+    _com_mgmt_lock.acquire()
+    try:
+        if com_port_opened:
+            com_port_opened = False
+            # close the com port
+            default_xbee.close_serial()
+            ran_first_time = False # we should reprint an error if the serial port settings don't work
+            thread.start_new_thread(open_com_thread, ())
+    finally:
+        _com_mgmt_lock.release()
+
+def _ready():
+    global com_port_opened
+    return com_port_opened
 
 thread.start_new_thread(open_com_thread, ())
 
