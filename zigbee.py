@@ -1824,37 +1824,47 @@ def open_com_thread():
     global ran_first_time
     global default_xbee
     global _com_mgmt_lock
-    _com_mgmt_lock.acquire()
-    try:
-        while not com_port_opened:
-            xbee_serial_port = None
+    while not com_port_opened:
+        xbee_serial_port = None
+        _com_mgmt_lock.acquire()
+        try:
             try:
                 xbee_serial_port = serial.Serial(simulator_settings.settings["com_port"], simulator_settings.settings["baud"], rtscts = 1)
                 xbee_serial_port.writeTimeout = 1 # 1 second timeout for writes
                 xbee_serial_port.flushInput() #get rid of anything the XBee had stored up
                 default_xbee.serial = xbee_serial_port
-                default_xbee.ddo_get_param(None, "VR", force_com=True) #make sure the serial port connects to an XBee
-                com_port_opened = True  #set globals
+                #make sure the serial port connects to an XBee (ddo will throw exception on error)
+                default_xbee.ddo_get_param(None, "VR", force_com=True)
+                # COM port successfully opened, finish initialization
+                com_port_opened = True
+                if simulator_settings.settings.get("xbee_initialization", True):
+                    # initialize some critical XBee settings on behalf of the user:
+                    try:
+                        default_xbee.ddo_set_param(None, "D6", 1)
+                        default_xbee.ddo_set_param(None, "D7", 1)
+                        default_xbee.ddo_set_param(None, "AO", 3)
+                    except Exception, e:
+                        # Continue with opening XBee, this is NOT a fatal error.
+                        logger.warning("unable to initialize XBee DDO params: %s" % repr(e))
+                try:
+                    default_xbee.get_node_list(refresh=True, blocking=False) #kick off discovery of nodes on network
+                except Exception, e:
+                    logger.warning("exception during XBee node discovery: %s" % e)
+                logger.info("Serial port for XBee opened successfully (%s, %s)" % (simulator_settings.settings.get('com_port', 'No COM'), simulator_settings.settings.get('baud', 'no baud')))
                 ran_first_time = True
+                return
             except Exception, e:
                 if not ran_first_time:
                     logger.error("Exception while creating serial port (%s, %s): %s" % (simulator_settings.settings.get('com_port', 'No COM'), simulator_settings.settings.get('baud', 'no baud'), e))
                     ran_first_time = True
                 if xbee_serial_port:
                     xbee_serial_port.close()
-                time.sleep(.5)  #try opening the serial port again
-        if simulator_settings.settings.get("no_xbee_initialization", "False"):
-            # initialize some critical XBee settings on behalf of the user:
-            try:
-                default_xbee.ddo_set_param(None, "D6", 1)
-                default_xbee.ddo_set_param(None, "D7", 1)
-                default_xbee.ddo_set_param(None, "AO", 3)
-            except Exception, e:
-                logger.warning("unable initialize XBee DDO params: %s" % repr(e))
-        default_xbee.get_node_list(refresh=True, blocking=False) #kick off discovery of nodes on network            
-        logger.info("Serial port for XBee opened successfully (%s, %s)" % (simulator_settings.settings.get('com_port', 'No COM'), simulator_settings.settings.get('baud', 'no baud')))
-    finally:
-        _com_mgmt_lock.release()
+        finally:
+            if not com_port_opened:
+                _com_mgmt_lock.release()
+                time.sleep(.5)  #try opening the serial port again after a short sleep
+            else:
+                _com_mgmt_lock.release()
 
 def com_port_changes(new_value, old_value):
     global com_port_opened
