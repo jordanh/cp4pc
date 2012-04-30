@@ -971,15 +971,21 @@ class XBee:
                             #print "ZDO Announce Message Received"
                             frame = ZDO_Frame(zb_data.payload, zb_data.source_address)                           
                             self.device_annce_cluster.handle_message(frame)                        
-                        
                         # check for LQI request
-                        if zb_data.destination_address[1] == 0 and\
+                        elif zb_data.destination_address[1] == 0 and\
                             zb_data.destination_address[2] == 0 and\
                             zb_data.destination_address[3] == 0x8031:
-                            #print "LQI Response Message Received"
                             frame = ZDO_Frame(zb_data.payload, zb_data.source_address)                           
                             self.lqi_cluster.handle_message(frame)
-                            
+
+                        # check if a new remote device
+                        if zb_data.destination_address[0]:
+                            for node in self.node_list:
+                                if zb_data.destination_address[0] == node.addr_extended:
+                                    break
+                            else:
+                                self._new_node(zb_data.destination_address[0])
+                        
                         if local_endpoint in self.rx_messages:
                             if zb_data.source_address is None:
                                 pass
@@ -1216,6 +1222,8 @@ class XBee:
                 # send request to own neighbor table to start discovery
                 for node in self.node_list:
                     LQI_aggregator(self.lqi_cluster, node.addr_extended, 0, self._LQI_callback)
+                self.node_list = self.node_list[:1] #remove all but the first item (local node)
+                
                 start_time = time.time()
                 while time.time() < start_time + 3: #NOTE: used to be 6.625 (as measured on CPX2)
                     self.read_messages()
@@ -1311,6 +1319,14 @@ class XBee:
             addr_parent = short_to_address_string(struct.unpack(">H", at_mp)[0])
         return Node(dtype, addr_extended, addr_short, addr_parent, self.DIGI_PROFILE_ID, self.DIGI_MANUFACTURER_ID, label)                
 
+    def _new_node(self, addr_extended, addr_short="[FFFE]!", node_type="unknown"):
+        "Create new node in list and kick off LQI request"
+        new_node = Node(type = node_type,\
+                        addr_extended  = addr_extended,\
+                        addr_short = addr_short)
+        self.node_list.append(new_node)
+        LQI_aggregator(self.lqi_cluster, addr_extended, 0, self._LQI_callback)
+    
     def _LQI_callback(self, record_list):
         """callback for LQI aggregator on a Device"""
         #print "LQI final callback called"
@@ -1322,11 +1338,7 @@ class XBee:
                     break
             else:
                 #construct a new lqi_aggregator and add it as a node
-                new_node = Node(type = self.device_types[record.device_type],\
-                                addr_extended  = record.addr_extended,\
-                                addr_short = record.addr_short)
-                self.node_list.append(new_node)
-                LQI_aggregator(self.lqi_cluster, new_node.addr_extended, 0, self._LQI_callback)
+                self._new_node(record.addr_extended, record.addr_short, self.device_types[record.device_type])
     
     def device_announce_handler(self, record):
         """callback for device announce"""
@@ -1339,11 +1351,7 @@ class XBee:
                 break
         else:
             #construct a new lqi_aggregator and add it as a node
-            new_node = Node(type = "Unknown",\
-                            addr_extended  = addr_extended,\
-                            addr_short = addr_short)
-            self.node_list.append(new_node)
-            LQI_aggregator(self.lqi_cluster, new_node.addr_extended, 0, self._LQI_callback)
+            self._new_node(addr_extended, addr_short)
         
 # Create local XBee to refer to by default
 default_xbee = XBee()
