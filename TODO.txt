@@ -1,12 +1,11 @@
 Configuration
 =============
-- print warning if not running Python 2.7
 
 ADDP
 ====
 - Send error responses (if necessary) for unsupported commands.
 - Consider supporting commands to configure the iDigi server settings via ADDP.
-   - Requires addition of persistent state.
+   - Requires addition of persistent state (would be easy through settings, just not sure if we want to do it.)
 - Support configuration commands?
 
 EDP
@@ -19,20 +18,16 @@ RCI
 ===
 - Edit query_settings and query_state so developer.idigi.com lists useful information for Device Properties.
 - Fully support the do_command target "zigbee"?
-- Fix descriptors! do_command targets are not being discovered.
+- Fix descriptors to match gateways more closely.
 - remove file management, unless root folder is specified.
 
 ZigBee
 ======
+- Support series 1 radios
 
 GUI
 ===
-- XIG interface
 - show power button as disabled when polling fails.  Also, return from grey on reconnect.
-- setup for Windows needs to copy non-Python files to dist directory.  Should also create Zip.
-- XIG doesn't restart when XBee COM settings change.
-- idigi_data target doesn't work in console (XBee address '127.0.0.1' invalid).
-- add a README.TXT
 - logs:
   - scroll lock
   - clear
@@ -42,8 +37,6 @@ GUI
 XIG
 ===
 - local ip address isn't valid until after iDigi connection completes.
-- turn all of the prints into logging (finish)
-- store mac/eui-64/ip addresses as an int
 - Create .pro file for XBee
 
 Windows
@@ -53,7 +46,6 @@ Windows
 Mac
 ===
 - works with Python 2.7
-- create an executable
 
 Linux
 =====
@@ -61,4 +53,3 @@ Linux
 
 Release
 =======
-- In addition to source code, use py2exe (Win) and py2app (Mac) to generate standalone applications for people who don't want to install Python.
