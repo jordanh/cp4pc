@@ -1093,7 +1093,7 @@ class XBee:
                 if at_response is not None:
                     break
             else:
-                raise Exception("ddo_get_param: error fetching DDO parameter.")
+                raise Exception("ddo_get_param: error fetching DDO parameter (%s@%s)." % (str(id), str(addr_extended)))
                 return ""
             return at_response.api_data.value
         finally:
@@ -1147,14 +1147,14 @@ class XBee:
                 if at_response is not None:
                     break
             else:
-                raise Exception("ddo_set_param: error setting DDO parameter.") # on timeout or error
+                raise Exception("ddo_set_param: error setting DDO parameter (%s@%s)." % (str(id), str(addr_extended))) # on timeout or error
                 return ""
             
             if at_response.api_data.status == 0:
                 # success
                 return True
             else:
-                raise Exception("ddo_set_param: error setting DDO parameter.")
+                raise Exception("ddo_set_param: error setting DDO parameter (%s@%s)." % (str(id), str(addr_extended)))
             return False
         finally:
             _global_lock.release()
@@ -1209,7 +1209,7 @@ class XBee:
                 if at_response is not None:
                     break
             else:
-                raise Exception("ddo_command: error performing DDO command.")
+                raise Exception("ddo_command: error performing DDO command (%s@%s)." % (str(id), str(addr_extended)))
                 return None
             if at_response.api_data.status == 0:
                 if len(at_response.api_data.value) == 0:
@@ -1217,7 +1217,7 @@ class XBee:
                 else:
                     return at_response.api_data.value
             else:
-                raise Exception("ddo_command: error performing DDO command.")
+                raise Exception("ddo_command: error performing DDO command (%s@%s)." % (str(id), str(addr_extended)))
                 return None  
         finally:
             _global_lock.release()
