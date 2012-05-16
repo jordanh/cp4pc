@@ -772,6 +772,8 @@ class XBee:
         
         self.lqi_cluster = ZDO_Mgmt_Lqi_cluster_client(self)
         self.device_annce_cluster = ZDO_Device_annce_cluster_server(self.device_announce_handler)
+        self.hw_version = None
+        self.sw_version = None
 
     def close_serial(self):
         global com_port_opened
@@ -787,7 +789,16 @@ class XBee:
         finally:
             _global_lock.release()
 
-        
+    def set_version(self):
+        self.hw_version = struct.unpack(">H", self.ddo_get_param(None, "HV", force_com=True))[0]
+        self.sw_version = struct.unpack(">H", self.ddo_get_param(None, "VR", force_com=True))[0]
+    
+    def is_series_1(self):
+        return (self.hw_version & 0xFF00) in (0x1700,)
+    
+    def is_802_15_4(self):
+        return self.is_series_1() and ((self.sw_version & 0xF000) == 0x1000)
+    
     def register_endpoint(self, endpoint_id):
         "Registers an endpoint to save messages for"
         if endpoint_id not in self.rx_messages:
@@ -1830,7 +1841,7 @@ def open_com_thread():
                 xbee_serial_port.flushInput() #get rid of anything the XBee had stored up
                 default_xbee.serial = xbee_serial_port
                 #make sure the serial port connects to an XBee (ddo will throw exception on error)
-                default_xbee.ddo_get_param(None, "VR", force_com=True)
+                default_xbee.set_version()
                 # COM port successfully opened, finish initialization
                 com_port_opened = True
                 if simulator_settings.settings.get("xbee_initialization", True):
@@ -1838,7 +1849,9 @@ def open_com_thread():
                     try:
                         default_xbee.ddo_set_param(None, "D6", 1)
                         default_xbee.ddo_set_param(None, "D7", 1)
-                        default_xbee.ddo_set_param(None, "AO", 3)
+                        if not default_xbee.is_series_1():
+                            # ATAO not supported on XBee series 1
+                            default_xbee.ddo_set_param(None, "AO", 3)
                     except Exception, e:
                         # Continue with opening XBee, this is NOT a fatal error.
                         logger.warning("unable to initialize XBee DDO params: %s" % repr(e))
