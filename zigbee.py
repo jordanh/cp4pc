@@ -1099,13 +1099,12 @@ class XBee:
         finally:
             _global_lock.release()
 
-    def ddo_set_param(self, addr_extended, id, value, timeout=0, order=False, apply=True):
+    def ddo_set_param(self, addr_extended, id, value, timeout=1, order=False, apply=True):
         "Set a Digi Device Objects parameter value"
         _global_lock.acquire(True)
         try:
             if not com_port_opened: #a global
                 raise Exception("ddo_set_param: serial port not opened")
-            timeout = 15
             # check format of id
             if not isinstance(id, str):
                 # TTDO: this should be a type error
@@ -1160,13 +1159,12 @@ class XBee:
         finally:
             _global_lock.release()
             
-    def ddo_command(self, addr_extended, id, value = None, timeout=0, order=False, apply=True):
+    def ddo_command(self, addr_extended, id, value = None, timeout=1, order=False, apply=True):
         "Execute a Digi Device Objects AT command (only local address currently supported)"
         _global_lock.acquire(True)
         try:
             if not com_port_opened: #a global
                 raise Exception("ddo_command: serial port not opened")
-            timeout = 15
             # check format of id
             if not isinstance(id, str):
                 # TTDO: this should be a type error
