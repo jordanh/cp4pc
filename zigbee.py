@@ -877,8 +877,6 @@ class XBee:
                     options |= destination_address[4] ^ socket.XBS_RXADDROPT_PKT_ACK
                 full_source_address = ("", source_endpoint, destination_address[2], destination_address[3], options)
                 recv_tuple = (payload, full_source_address)
-                # create 
-                
                 # add data to the message queue
                 if tx_status_tuple is not None:
                     self.rx_messages[source_endpoint].append(tx_status_tuple)                            
