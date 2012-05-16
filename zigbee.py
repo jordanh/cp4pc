@@ -131,7 +131,99 @@ class API_Data:
     def export(self):
         "Returns the whole buffer as a string"
         return self.data
+
+
+class IEEE_802_15_4_64_Data(API_Data):
+    "Extracts an 802.15.4 frame from the XBee Rx message and outputs a XBee transmit frame."
+    BROADCAST_RADIUS = 0
+    "Number of hops on the XBee network."
+    rx_id = 0x80
+    "Receive API message type ID"
+    tx_id = 0x00
+    "Transmit API message type ID"
     
+    def __init__(self, source_address = None, destination_address = None, payload = ""):
+        "Initializes the zb_data with no data."
+        API_Data.__init__(self)        
+        self.source_address = source_address
+        self.destination_address = destination_address
+        self.payload = payload
+        self.rssi = 0
+
+    def extract(self, cmd_data):
+        "Extract a XBee message from a 0x80 XBee frame cmd_data"
+        if len(cmd_data) < 10:
+            #Message too small, return error
+            logger.warn("Malformed message - too small")
+            return -1
+        source_address_64, self.rssi, options = struct.unpack(">QBB", cmd_data[:10])
+        self.payload = cmd_data[10:]
+        # use the device's EUI address
+        address_string = MAC_to_address_string(source_address_64)            
+        # convert source address to proper string format, create address tuple
+        # NOTE: 6th parameter is only used for TX Status - always set to zero.
+        self.source_address = (address_string, 0, 0, 0, options, 0)
+        self.destination_address = ("", 0, 0, 0)
+        return 0
+        
+    def export(self):
+        "Export a XBee message as a 0x00 XBee frame cmd_data"
+        self.frame_id = self.next_frame()
+        cmd_data = chr(self.frame_id) #frame id
+        cmd_data += struct.pack(">Q", address_string_to_MAC(self.destination_address[0])) # destination_address_64
+        if len(self.destination_address) > 4:
+            cmd_data += chr(self.destination_address[4])
+        else:
+            cmd_data += chr(0) # default to no options
+        cmd_data += self.payload
+        return cmd_data
+
+
+class IEEE_802_15_4_16_Data(API_Data):
+    "Extracts an 802.15.4 frame from the XBee Rx message and outputs a XBee transmit frame."
+    BROADCAST_RADIUS = 0
+    "Number of hops on the XBee network."
+    rx_id = 0x81
+    "Receive API message type ID"
+    tx_id = 0x01
+    "Transmit API message type ID"
+    
+    def __init__(self, source_address = None, destination_address = None, payload = ""):
+        "Initializes the zb_data with no data."
+        API_Data.__init__(self)        
+        self.source_address = source_address
+        self.destination_address = destination_address
+        self.payload = payload
+        self.rssi = 0
+
+    def extract(self, cmd_data):
+        "Extract a XBee message from a 0x81 XBee frame cmd_data"
+        if len(cmd_data) < 4:
+            #Message too small, return error
+            logger.warn("Malformed message - too small")
+            return -1
+        source_address_16, self.rssi, options = struct.unpack(">HBB", cmd_data[:4])
+        self.payload = cmd_data[4:]
+        # use the device's short address
+        address_string = short_to_address_string(source_address_16)            
+        # convert source address to proper string format, create address tuple
+        # NOTE: 6th parameter is only used for TX Status - always set to zero.
+        self.source_address = (address_string, 0, 0, 0, options, 0)
+        self.destination_address = ("", 0, 0, 0)
+        return 0
+        
+    def export(self):
+        "Export a XBee message as a 0x01 XBee frame cmd_data"
+        self.frame_id = self.next_frame()
+        cmd_data = chr(self.frame_id) #frame id
+        cmd_data += struct.pack(">H", address_string_to_short(self.destination_address[0])) # destination_address_16
+        if len(self.destination_address) > 4:
+            cmd_data += chr(self.destination_address[4])
+        else:
+            cmd_data += chr(0) # default to no options
+        cmd_data += self.payload
+        return cmd_data
+
 
 class ZB_Data(API_Data):
     "Extracts a ZigBee frame from the XBee Rx message and outputs a XBee transmit frame."
@@ -313,6 +405,38 @@ class Register_Device_Data(API_Data):
         return cmd_data
 
 
+class IEEE_802_15_4_Tx_Status_Data(API_Data):
+    "Extracts from an 802.15.4 Tx Status frame."
+    rx_id = 0x89
+    "Receive ZigBee Tx Status message type ID"
+    # Delivery Status
+    SUCCESS = 0x00
+    NO_ACK_RECEIVED = 0x01
+    CCA_FAILURE = 0x02
+    PURGED = 0x03
+
+    def __init__(self, delivery_status = SUCCESS):
+        API_Data.__init__(self)
+        "Initializes the register device with no data."
+        self.delivery_status = delivery_status
+        "If the message was delivered or if there was an error"
+
+    def extract(self, cmd_data):
+        "Extract a ZigBee Tx Status message from a 0x8B xbee frame cmd_data"
+        if len(cmd_data) < 2:
+            #Message too small, return error
+            return -1
+        # extract data
+        self.frame_id, self.delivery_status = struct.unpack(">BB", cmd_data[:2])
+        return 2
+        
+    def export(self):
+        "Will export a TX Status Message.  May be used for local message routing."
+        cmd_data = chr(self.frame_id)
+        cmd_data += chr(self.delivery_status)
+        return cmd_data
+
+
 class ZigBee_Tx_Status_Data(API_Data):
     "Extracts from a ZigBee Tx Status frame."
     rx_id = 0x8B
@@ -371,8 +495,14 @@ class ZigBee_Tx_Status_Data(API_Data):
 class API_Message:
     "Creates API message for the XBee"
     
-    API_IDs = {ZB_Data.rx_id: ZB_Data, Local_AT_Data.rx_id: Local_AT_Data, Remote_AT_Data.rx_id: Remote_AT_Data,\
-               Register_Device_Data.rx_id: Register_Device_Data, ZigBee_Tx_Status_Data.rx_id: ZigBee_Tx_Status_Data}
+    API_IDs = {ZB_Data.rx_id: ZB_Data, 
+               Local_AT_Data.rx_id: Local_AT_Data, 
+               Remote_AT_Data.rx_id: Remote_AT_Data,\
+               Register_Device_Data.rx_id: Register_Device_Data, 
+               ZigBee_Tx_Status_Data.rx_id: ZigBee_Tx_Status_Data, 
+               IEEE_802_15_4_Tx_Status_Data.rx_id: IEEE_802_15_4_Tx_Status_Data,
+               IEEE_802_15_4_64_Data.rx_id: IEEE_802_15_4_64_Data, 
+               IEEE_802_15_4_16_Data.rx_id: IEEE_802_15_4_16_Data}
     "Stores the different APIs"
     
     def __init__(self):
@@ -896,8 +1026,20 @@ class XBee:
         else:
             # send message out the XBee
             message = API_Message()
-            message.API_ID = 0x11
-            zb_data = ZB_Data()
+            if self.is_802_15_4():
+                # create an 802.15.4 message
+                if len(destination_address[0]) <= 8: #'[xxxx]!' or '[xx:xx]!'
+                    # this is a 16-bit address
+                    message.API_ID = IEEE_802_15_4_16_Data.tx_id
+                    zb_data = IEEE_802_15_4_16_Data()
+                else:
+                    # this is a 64-bit address 
+                    message.API_ID = IEEE_802_15_4_64_Data.tx_id
+                    zb_data = IEEE_802_15_4_64_Data()
+            else:
+                #assume this radio uses the ZB packets
+                message.API_ID = ZB_Data.tx_id
+                zb_data = ZB_Data()
             zb_data.source_address = ("", source_endpoint, 0, 0)
             zb_data.destination_address = destination_address
             zb_data.payload = payload
@@ -916,7 +1058,7 @@ class XBee:
         if -0xFF in self.rx_messages:
             # add to the generic message socket
             self.rx_messages[-0xFF].append((message_buffer, ('[0000]!', 0, 0, 0, 0, 0)))
-        if -message.API_ID in self.rx_messages:
+        if -message.API_ID in self.rx_messages: #NOTE: API_ID = 0 is never received from XBee.
             # add to the message specific socket
             self.rx_messages[-message.API_ID].append((message_buffer, ('[0000]!', 0, 0, 0, 0, 0)))
 
@@ -987,6 +1129,18 @@ class XBee:
                 else:
                     # add data to the message queue
                     self.rx_messages[local_endpoint].append(recv_tuple)
+        elif message.API_ID == IEEE_802_15_4_16_Data.rx_id or message.API_ID == IEEE_802_15_4_64_Data.rx_id: # explicit 802.15.4 message
+            #extract the message
+            zb_data = message.api_data
+            # make sure the address is registered, check with address = ""
+            local_endpoint = zb_data.destination_address[1] #NOTE: will always be zero
+            if local_endpoint in self.rx_messages:
+                if zb_data.source_address is None:
+                    pass
+                # create the tuple to store the message
+                recv_tuple = (zb_data.payload, zb_data.source_address)
+                # add data to the message queue
+                self.rx_messages[local_endpoint].append(recv_tuple)
         elif message.API_ID == Local_AT_Data.rx_id: #cmd ID for local AT response
             #extract the at_data
             at_data = message.api_data
@@ -999,7 +1153,7 @@ class XBee:
             # check if this is the message we are waiting for
             if at_data.frame_id == AT_frame_id:
                 return message
-        elif message.API_ID == ZigBee_Tx_Status_Data.rx_id: #cmd ID for XBee Tx Status message
+        elif message.API_ID == ZigBee_Tx_Status_Data.rx_id or message.API_ID == IEEE_802_15_4_Tx_Status_Data.rx_id: #cmd ID for Tx Status message
             # match to 6th address parameter if enabled
             # extract the tx_response
             status_data = message.api_data
@@ -1007,7 +1161,7 @@ class XBee:
                 # Tx Status matches existing frame id, queue response in socket
                 transaction_id, endpoint_id = self.tx_status[status_data.frame_id]
                 delivery_status = chr(ZigBee_Tx_Status_Data.rx_id) + status_data.export()
-                tx_status_tuple = (delivery_status, ("[00:00:00:00:00:00:00:00]!", endpoint_id, 0xC105, 0x8B, 0, transaction_id))
+                tx_status_tuple = (delivery_status, ("[00:00:00:00:00:00:00:00]!", endpoint_id, 0xC105, message.API_ID, 0, transaction_id))
                 self.rx_messages[endpoint_id].append(tx_status_tuple)                                        
         else:
             # we are currently not handling this message type
@@ -1242,69 +1396,77 @@ class XBee:
                 self.node_list.append(self._create_local_node())
             
             if refresh:
-                # send request to own neighbor table to start discovery
-                for node in self.node_list:
-                    LQI_aggregator(self.lqi_cluster, node.addr_extended, 0, self._LQI_callback)
-                self.node_list = self.node_list[:1] #remove all but the first item (local node)
-                
-                start_time = time.time()
-                while time.time() < start_time + 3: #NOTE: used to be 6.625 (as measured on CPX2)
-                    self.read_messages()
-                    if not blocking:
-                        break
-                    time.sleep(.1)
+                if self.is_802_15_4():
+                    # Node discover using the ND command on the XBee
+                    nt_str = ddo_get_param(None, "NT")
+                    # support 1 or 2 byte return
+                    if len(nt_str) == 1:
+                        nt, = struct.unpack(">B", nt_str)
+                    elif len(nt_str) == 2:
+                        nt, = struct.unpack(">H", nt_str)
+                    else:
+                        nt = 0xFF
+                    node_discovery_timeout = nt / 10.0 # in seconds
+                    response_list = []
+                    # start Node discovery
+                    message = API_Message()
+                    message.api_data = Local_AT_Data("ND")    
+                    self.send(message)            
+                    # wait to receive responses
+                    AT_frame_id = message.api_data.frame_id
+                    at_response = None
+                    start_time = time.time()
+                    while start_time + node_discovery_timeout > time.time():
+                        at_response = self.read_messages(AT_frame_id)
+                        if at_response is not None:
+                            # store responses for parsing later.
+                            response_list.append(at_response)
+                    # parse responses
+                    self.node_list = self.node_list[1:] #remove all but the first item (local node)
+                    device_types = ["coordinator", "router", "end"]
+                    for at_response in response_list:
+                        msg = at_response.api_data.value
+                        if self.is_802_15_4():
+                            addr_short, addr_extended, rssi = struct.unpack(">HQB", msg[:11])
+                            index = 11
+                        else:
+                            addr_short, addr_extended = struct.unpack(">HQ", msg[:10])
+                            index = 10
+                        # convert 16-bit address into a formatted string
+                        addr_short = short_to_address_string(addr_short)
+                        # convert 64-bit address into a formatted string
+                        addr_extended = MAC_to_address_string(addr_extended)
+                        label = ""
+                        for character in msg[index:]:
+                            if character != chr(0):
+                                label += character
+                            else:
+                                break
+                        if self.is_802_15_4():
+                            self.node_list.append(Node(device_types[1], addr_extended, addr_short, 0xFFFE, 0xC105, 0x101E, label))
+                        else:
+                            index += len(label) + 1
+                            addr_parent, radio_type, status, profile_id, manufacturer_id = struct.unpack(">HBBHH", msg[index:index + 8])
+                            # turn type into a string
+                            radio_type = device_types[radio_type]
+                            self.node_list.append(Node(radio_type, addr_extended, addr_short, addr_parent, profile_id, manufacturer_id, label))
+                else:
+                    # send request to own neighbor table to start discovery
+                    for node in self.node_list:
+                        LQI_aggregator(self.lqi_cluster, node.addr_extended, 0, self._LQI_callback)
+                    self.node_list = self.node_list[:1] #remove all but the first item (local node)
+                    
+                    start_time = time.time()
+                    while time.time() < start_time + 3: #NOTE: used to be 6.625 (as measured on CPX2)
+                        self.read_messages()
+                        if not blocking:
+                            break
+                        time.sleep(.1)
                                   
             return self.node_list[:]
         finally:
             _global_lock.release()
         
-        # Node discover using the ND command on the XBee
-#            nt_str = ddo_get_param(None, "NT")
-#            # support 1 or 2 byte return
-#            if len(nt_str) == 1:
-#                nt, = struct.unpack(">B", nt_str)
-#            elif len(nt_str) == 2:
-#                nt, = struct.unpack(">H", nt_str)
-#            else:
-#                nt = 0xFF
-#            node_discovery_timeout = nt / 10.0 # in seconds
-#            response_list = []
-#            node_list = []
-#            # start Node discovery
-#            message = API_Message()
-#            message.api_data = Local_AT_Data("ND")    
-#            self.send(message)            
-#            # wait to receive responses
-#            AT_frame_id = message.api_data.frame_id
-#            at_response = None
-#            start_time = time.time()
-#            while start_time + node_discovery_timeout > time.time():
-#                at_response = self.read_messages(AT_frame_id)
-#                if at_response is not None:
-#                    # store responses for parsing later.
-#                    response_list.append(at_response)
-#            # parse responses
-#            device_types = ["coordinator", "router", "end"]
-#            for at_response in response_list:
-#                msg = at_response.api_data.value
-#                addr_short, addr_extended = struct.unpack(">HQ", msg[0:10]) 
-#                # convert 16-bit address into a formatted string
-#                addr_short = short_to_address_string(addr_short)
-#                # convert 64-bit address into a formatted string
-#                addr_extended = MAC_to_address_string(addr_extended)
-#                label = ""
-#                for character in msg[10:]:
-#                    if character != chr(0):
-#                        label += character
-#                    else:
-#                        break
-#                index = 11 + len(label)
-#                addr_parent, type, status, profile_id, manufacturer_id = struct.unpack(">HBBHH", msg[index:index + 8])
-#                # turn type into a string
-#                type = device_types[type]
-#                node_list.append(Node(type, addr_extended, addr_short, addr_parent, profile_id, manufacturer_id, label))
-#            return node_list[:]
-
     def _create_local_node(self):
         """Create Node object based on local device"""
         # first time calling get_node_list, lets get the local data as well.
@@ -1325,21 +1487,23 @@ class XBee:
         
         #default parent to None
         addr_parent = "[FFFE]!"
-        if VR & 0x0F00 == 0x0100:
-            # this is a Coordinator
-            dtype = self.device_types[0]
-        elif VR & 0x0F00 == 0x0300:
-            # this is a Router
-            dtype = self.device_types[1]
-        elif VR & 0x0F00 == 0x0400:
-            # this is a Range Extender, device type is Router though
-            dtype = self.device_types[1]
-        else:
-            #this is an End Device
-            dtype = self.device_types[2]
-            # only available on End Devices
-            at_mp = self.ddo_get_param(None, "mp")
-            addr_parent = short_to_address_string(struct.unpack(">H", at_mp)[0])
+        dtype = self.device_types[1] #default to router
+        if not self.is_802_15_4(): #802.15.4 doesn't have parents.
+            if VR & 0x0F00 == 0x0100:
+                # this is a Coordinator
+                dtype = self.device_types[0]
+            elif VR & 0x0F00 == 0x0300:
+                # this is a Router
+                dtype = self.device_types[1]
+            elif VR & 0x0F00 == 0x0400:
+                # this is a Range Extender, device type is Router though
+                dtype = self.device_types[1]
+            else:
+                #this is an End Device
+                dtype = self.device_types[2]
+                # only available on End Devices
+                at_mp = self.ddo_get_param(None, "mp")
+                addr_parent = short_to_address_string(struct.unpack(">H", at_mp)[0])
         return Node(dtype, addr_extended, addr_short, addr_parent, self.DIGI_PROFILE_ID, self.DIGI_MANUFACTURER_ID, label)                
 
     def _new_node(self, addr_extended, addr_short="[FFFE]!", node_type="unknown"):
