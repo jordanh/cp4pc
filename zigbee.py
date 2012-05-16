@@ -314,7 +314,7 @@ class Register_Device_Data(API_Data):
 
 
 class ZigBee_Tx_Status_Data(API_Data):
-    "Extracts from a ZigBee Tx Status frame no export function."
+    "Extracts from a ZigBee Tx Status frame."
     rx_id = 0x8B
     "Receive ZigBee Tx Status message type ID"
     # Delivery Status
