@@ -50,11 +50,11 @@ class SettingsDict(dict):
             fp = open(self.filename, 'r')
             try:
                 # The object_hook is used to translate the unicode strings into utf-8 strings
-                fp.close()
                 return dict.__init__(self, json.load(fp, object_hook=_decode_dict))
-            except Exception, e:
+            except:
                 pass
-            fp.close()
+            finally:
+                fp.close()
         return dict.__init__(self)    
     
     def add_callback(self, key, callback):
