@@ -944,7 +944,8 @@ class XBee:
         _global_lock.acquire(True)
         try:
             if self.serial is None or not self.serial.isOpen():
-                return None
+                return None, None
+                #TODO: raise exception?
             # checks for any new messages
             self.read_messages()
             # check to see if there are any messages waiting
@@ -1258,8 +1259,7 @@ class XBee:
                 if at_response is not None:
                     break
             else:
-                raise Exception("ddo_get_param: error fetching DDO parameter (%s@%s)." % (str(id), str(addr_extended)))
-                return ""
+                raise Exception("ddo_get_param: timeout fetching DDO parameter (%s@%s)." % (str(id), str(addr_extended)))
             return at_response.api_data.value
         finally:
             _global_lock.release()
@@ -1312,8 +1312,7 @@ class XBee:
                 if at_response is not None:
                     break
             else:
-                raise Exception("ddo_set_param: error setting DDO parameter (%s@%s)." % (str(id), str(addr_extended))) # on timeout or error
-                return ""
+                raise Exception("ddo_set_param: timeout setting DDO parameter (%s@%s)." % (str(id), str(addr_extended))) # on timeout or error
             
             if at_response.api_data.status == 0:
                 # success
@@ -1374,8 +1373,7 @@ class XBee:
                 if at_response is not None:
                     break
             else:
-                raise Exception("ddo_command: error performing DDO command (%s@%s)." % (str(id), str(addr_extended)))
-                return None
+                raise Exception("ddo_command: timeout performing DDO command (%s@%s)." % (str(id), str(addr_extended)))
             if at_response.api_data.status == 0:
                 if len(at_response.api_data.value) == 0:
                     return None
@@ -1383,7 +1381,6 @@ class XBee:
                     return at_response.api_data.value
             else:
                 raise Exception("ddo_command: error performing DDO command (%s@%s)." % (str(id), str(addr_extended)))
-                return None  
         finally:
             _global_lock.release()
     
@@ -1552,27 +1549,27 @@ def unregister_joining_device(addr_extended, timeout = 0):
     """register_joining _device(addr_extended[, timeout])->None"""
     return default_xbee.unregister_joining_device(addr_extended, timeout)
 
-def ddo_get_param(addr_extended, id, timeout=1, order=False):
+def ddo_get_param(*params, **keywords):
     "Get a Digi Device Objects parameter value (only local address currently supported)"
     _global_lock.acquire(True)
     try:
-        return default_xbee.ddo_get_param(addr_extended, id, timeout, order)
+        return default_xbee.ddo_get_param(*params, **keywords)
     finally:
         _global_lock.release()
 
-def ddo_set_param(addr_extended, id, value, timeout=0, order=False, apply=True):
+def ddo_set_param(*params, **keywords):
     "Set a Digi Device Objects parameter value (only local address currently supported)"
     _global_lock.acquire(True)
     try:
-        return default_xbee.ddo_set_param(addr_extended, id, value, timeout, order, apply)
+        return default_xbee.ddo_set_param(*params, **keywords)
     finally:
         _global_lock.release()
         
-def ddo_command(addr_extended, id, value = None, timeout=0, order=False, apply=True):
+def ddo_command(*params, **keywords):
     "Execute a Digi Device Objects AT command (only local address currently supported)"
     _global_lock.acquire(True)
     try:
-        return default_xbee.ddo_command(addr_extended, id, value, timeout, order, apply)
+        return default_xbee.ddo_command(*params, **keywords)
     finally:
         _global_lock.release()
 
@@ -1871,7 +1868,7 @@ class XBeeSocket(original_socket):
     def _xb_recvfrom(self, buflen, flags = 0):
         "Receive a message from the socket."
         nonblocking = False
-        if flags == socket.MSG_DONTWAIT or self.getsockopt(socket.SOL_SOCKET, socket.SO_NONBLOCK) != 0:
+        if flags == socket.MSG_DONTWAIT or self.getsockopt(socket.SOL_SOCKET, socket.SO_NONBLOCK):
             nonblocking = True
         if self.endpoint_id is None:
             raise Exception("error: socket not bound yet") #Note: this is a different error
@@ -1921,7 +1918,7 @@ class XBeeSocket(original_socket):
         
     def _xb_setblocking(self, value):
         "Set the socket to be blocking or non-blocking"
-        return self.setsockopt(socket.SOL_SOCKET, socket.SO_NONBLOCK, value)
+        return self.setsockopt(socket.SOL_SOCKET, socket.SO_NONBLOCK, not value)
 
     def _xb_debug_add_message(self, payload, source_address):
         "Debugging function to artificially add an incoming message to a socket"
@@ -2013,11 +2010,14 @@ def open_com_thread():
                     try:
                         default_xbee.ddo_set_param(None, "D6", 1)
                         default_xbee.ddo_set_param(None, "D7", 1)
+                    except Exception, e:
+                        # Continue with opening XBee, this is NOT a fatal error.
+                        logger.warning("unable to initialize XBee DDO params: %s" % repr(e))
+                    try:
                         if not default_xbee.is_series_1():
                             # ATAO not supported on XBee series 1
                             default_xbee.ddo_set_param(None, "AO", 3)
                     except Exception, e:
-                        # Continue with opening XBee, this is NOT a fatal error.
                         logger.warning("unable to initialize XBee DDO params: %s" % repr(e))
                 try:
                     default_xbee.get_node_list(refresh=True, blocking=False) #kick off discovery of nodes on network
