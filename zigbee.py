@@ -41,12 +41,10 @@ import time
 import socket
 import select
 import logging
-import sys
 from threading import RLock
 
 # set up logger
 logger = logging.getLogger("cp4pc.xbee")
-logger.addHandler(logging.StreamHandler(sys.stdout))
 logger.setLevel(logging.INFO)
 
 MESH_TRACEBACK = False
