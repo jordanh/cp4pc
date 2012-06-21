@@ -492,6 +492,59 @@ class ZigBee_Tx_Status_Data(API_Data):
         return cmd_data            
 
 
+class IEEE_802_15_4_64_IO(API_Data):
+    "Extracts from an 802.15.4 Receive 64-bit Address IO."
+    rx_id = 0x82
+
+    def __init__(self, source_address = None, destination_address = None, rssi=None, payload = ""):
+        "Initializes the IO data with no data."
+        API_Data.__init__(self)        
+        self.source_address = source_address
+        self.rssi = rssi
+        self.payload = payload
+
+    def extract(self, cmd_data):
+        "Extract a XBee message from a 0x82 XBee frame cmd_data"
+        if len(cmd_data) < 10:
+            #Message too small, return error
+            logger.warn("Malformed message - too small")
+            return -1
+        source_address_64, self.rssi, options = struct.unpack(">QBB", cmd_data[:10])
+        self.payload = cmd_data[10:]
+        # use the device's EUI address
+        address_string = MAC_to_address_string(source_address_64)            
+        # convert source address to proper string format, create address tuple
+        # NOTE: 6th parameter is only used for TX Status - always set to zero.
+        self.source_address = (address_string, 0xe8, 0x0, 0x92, options, 0) #NOTE: 0xe8 is quirk of socket
+        return 0
+
+class IEEE_802_15_4_16_IO(API_Data):
+    "Extracts from an 802.15.4 Receive 16-bit Address IO."
+    rx_id = 0x83
+
+    def __init__(self, source_address = None, destination_address = None, rssi=None, payload = ""):
+        "Initializes the IO data with no data."
+        API_Data.__init__(self)        
+        self.source_address = source_address
+        self.rssi = rssi
+        self.payload = payload
+
+    def extract(self, cmd_data):
+        "Extract a XBee message from a 0x83 XBee frame cmd_data"
+        if len(cmd_data) < 4:
+            #Message too small, return error
+            logger.warn("Malformed message - too small")
+            return -1
+        source_address_16, self.rssi, options = struct.unpack(">HBB", cmd_data[:4])
+        self.payload = cmd_data[4:]
+        # use the device's EUI address
+        address_string = short_to_address_string(source_address_16)            
+        # convert source address to proper string format, create address tuple
+        # NOTE: 6th parameter is only used for TX Status - always set to zero.
+        self.source_address = (address_string, 0xe8, 0x0, 0x93, options, 0) #NOTE: 0xe8 is quirk of socket
+        return 0
+
+
 class API_Message:
     "Creates API message for the XBee"
     
@@ -502,7 +555,9 @@ class API_Message:
                ZigBee_Tx_Status_Data.rx_id: ZigBee_Tx_Status_Data, 
                IEEE_802_15_4_Tx_Status_Data.rx_id: IEEE_802_15_4_Tx_Status_Data,
                IEEE_802_15_4_64_Data.rx_id: IEEE_802_15_4_64_Data, 
-               IEEE_802_15_4_16_Data.rx_id: IEEE_802_15_4_16_Data}
+               IEEE_802_15_4_16_Data.rx_id: IEEE_802_15_4_16_Data,
+               IEEE_802_15_4_64_IO.rx_id: IEEE_802_15_4_64_IO,
+               IEEE_802_15_4_16_IO.rx_id: IEEE_802_15_4_16_IO}
     "Stores the different APIs"
     
     def __init__(self):
@@ -1130,7 +1185,8 @@ class XBee:
                 else:
                     # add data to the message queue
                     self.rx_messages[local_endpoint].append(recv_tuple)
-        elif message.API_ID == IEEE_802_15_4_16_Data.rx_id or message.API_ID == IEEE_802_15_4_64_Data.rx_id: # explicit 802.15.4 message
+        elif message.API_ID in (IEEE_802_15_4_16_Data.rx_id, 
+                                IEEE_802_15_4_64_Data.rx_id): # explicit 802.15.4 message
             #extract the message
             zb_data = message.api_data
             # make sure the address is registered, check with address = ""
@@ -1142,6 +1198,16 @@ class XBee:
                 recv_tuple = (zb_data.payload, zb_data.source_address)
                 # add data to the message queue
                 self.rx_messages[local_endpoint].append(recv_tuple)
+        elif message.API_ID in (IEEE_802_15_4_16_IO.rx_id,
+                                IEEE_802_15_4_64_IO.rx_id): # 802.15.4 IO message
+            #extract the message
+            io_data = message.api_data
+            # NOTE: IO messages get passed out on endpoint 0 for 802.15.4
+            if 0 in self.rx_messages:
+                # create the tuple to store the message
+                recv_tuple = (io_data.payload, io_data.source_address)
+                # add data to the message queue
+                self.rx_messages[0].append(recv_tuple)
         elif message.API_ID == Local_AT_Data.rx_id: #cmd ID for local AT response
             #extract the at_data
             at_data = message.api_data
@@ -1902,7 +1968,7 @@ class XBeeSocket(original_socket):
             raise("error: (22, 'Invalid argument')")
         # only look at endpoint from address
         endpoint_id = address[1]
-        # if this is a XBS_PROT_XAPI socket, use a negative endpoint ID
+        # if this is a XBS_PROT_XAPI socket (which gets specific API frames), use a negative endpoint ID
         if self._proto == socket.XBS_PROT_XAPI:
             endpoint_id = -endpoint_id
         # make sure there isn't already a socket bound to this endpoint.
