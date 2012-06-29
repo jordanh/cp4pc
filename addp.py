@@ -18,7 +18,7 @@ import time
 import logging
 import threading
 
-from simulator_settings import settings
+import simulator_settings
 
 # set up logger
 logger = logging.getLogger("cp4pc.addp")
@@ -111,14 +111,14 @@ class ADDP_Frame:
 
 
 class ADDP(threading.Thread):
-    
-    def __init__(self):
+    def __init__(self, settings_file="settings.json"):
         threading.Thread.__init__(self)
         threading.Thread.setDaemon(self,True)
+        self.settings = simulator_settings.settings(settings_file)
         # create multicast sockets to listen for ADDP requests
         self.socks = {} # dict of {socket: ip}
         self.setup_socks()
-        self.mac = struct.pack("!Q", settings['mac'])[2:]
+        self.mac = struct.pack("!Q", self.settings['mac'])[2:]
     
     def setup_socks(self):
         # populate list of sockets
@@ -221,11 +221,11 @@ class ADDP(threading.Thread):
         # add DHCP settings (DHCP server or 0)
         #response.payload += struct.pack(">BBI", ADDP_OP_DHCP, 4, 0x00000000)
         # add device name
-        device_name = settings.get('device_name', '')
+        device_name = self.settings.get('device_name', '')
         response.payload += struct.pack(">BB", ADDP_OP_NAME, len(device_name))
         response.payload += device_name
         # add hardware name
-        device_type = settings.get('device_type')
+        device_type = self.settings.get('device_type')
         response.payload += struct.pack(">BB", ADDP_OP_HWNAME, len(device_type))
         response.payload += device_type
         
@@ -233,7 +233,7 @@ class ADDP(threading.Thread):
             # add version
             # get the time of when the program was started
             (year, mon, mday, hour, min, sec, wday, yday, isdst) = time.gmtime(time.time() - time.clock())
-            version = "Version %s %d/%02d/%d" % (settings.get('version', '0.0.0'), mon, mday, year)
+            version = "Version %s %d/%02d/%d" % (self.settings.get('version', '0.0.0'), mon, mday, year)
             response.payload += struct.pack(">BB", ADDP_OP_FEPREV, len(version))
             response.payload += version
         

@@ -47,15 +47,10 @@ class SettingsDict(dict):
         self.callbacks = {} # key: [callbacks]
         # initialize dict from file
         if os.path.isfile(self.filename):
-            fp = open(self.filename, 'r')
-            try:
+            with open(self.filename, 'r') as fp:
                 # The object_hook is used to translate the unicode strings into utf-8 strings
                 return dict.__init__(self, json.load(fp, object_hook=_decode_dict))
-            except:
-                pass
-            finally:
-                fp.close()
-        return dict.__init__(self)    
+        return dict.__init__(self)
     
     def add_callback(self, key, callback):
         # callback should accept the following parameters (new_value, old_value)
@@ -84,39 +79,54 @@ class SettingsDict(dict):
                     pass
     
     def write_to_file(self):
-        fp = open(self.filename, 'w')
-        try:
+        with open(self.target_file, 'w') as fp:
             json.dump(self, fp)
-        finally:
-            fp.close() 
+
+def settings(filename, defaults_file=None):
+    # Create the SettingsDict
+    settings = SettingsDict(filename)
+    
+    if defaults_file is None:
+        defaults_file = os.path.join(os.path.dirname(__file__), "settings_default.json")
+    
+    # Load default settings
+    with open(defaults_file, 'r') as fp:
+        defaults = json.load(fp, object_hook=_decode_dict)
+        for key,value in defaults.items():
+            settings.setdefault(key, value)
+            
+    # Settings from computer
+    if 'mac' not in settings:
+        settings['mac'] = uuid.getnode()
         
-
-settings = SettingsDict('settings.json')
-# example and defaulted Settings
-
+    settings.setdefault('device_id', "00000000-00000000-%06XFF-FF%06X" % ((settings.get('mac', 0x000000000000) & 0xFFFFFF000000) >> (8*3), 
+                                                                          settings.get('mac', 0x000000000000) & 0x0000000FFFFFF))
+    
+    return settings
+        
 # Settings from computer
-if 'mac' not in settings:
+#if 'mac' not in settings:
     # this function call can be expensive, only call it if need be
-    settings['mac'] = uuid.getnode() # get a hardware mac from PC to use as a MAC address
+#    settings['mac'] = uuid.getnode() # get a hardware mac from PC to use as a MAC address
 
 # Program settings
-settings.setdefault('version', "0.0.0") #I'd recommend keeping this format
+#settings.setdefault('version', "0.0.0") #I'd recommend keeping this format
 
 # serial port settings for XBee
-settings.setdefault('com_port', '') #default to empty string
-settings.setdefault('baud', 115200) #should the default be 9600?
+#settings.setdefault('com_port', '') #default to empty string
+#settings.setdefault('baud', 115200) #should the default be 9600?
 
 # iDigi Settings
 # base the device ID on the MAC address (can be overwritten after import)
-settings.setdefault('device_id', "00000000-00000000-%06XFF-FF%06X" % ((settings.get('mac', 0x000000000000) & 0xFFFFFF000000) >> (8*3), 
-                                                                       settings.get('mac', 0x000000000000) & 0x0000000FFFFFF))
-settings.setdefault('idigi_server', 'developer.idigi.com')
-settings.setdefault('idigi_certs_file', 'idigi-ca-cert-public.crt')
-settings.setdefault('device_type', 'PC Gateway')
+#settings.setdefault('device_id', "00000000-00000000-%06XFF-FF%06X" % ((settings.get('mac', 0x000000000000) & 0xFFFFFF000000) >> (8*3), 
+#                                                                       settings.get('mac', 0x000000000000) & 0x0000000FFFFFF))
+#settings.setdefault('idigi_server', 'developer.idigi.com')
+#settings.setdefault('idigi_certs_file', 'idigi-ca-cert-public.crt')
+#settings.setdefault('device_type', 'PC Gateway')
 #settings.setdefault('vendor_id', 0x12345678) #can set vendor ID in iDigi
 
 # extra descriptions
-settings.setdefault('company', 'Digi International') 
+#settings.setdefault('company', 'Digi International') 
 #settings.setdefault('device_name', '') # user friendly name for the device
 #settings.setdefault('contact', 'name@example.com')
 #settings.setdefault('location', 'SomewhereVille, USA')
