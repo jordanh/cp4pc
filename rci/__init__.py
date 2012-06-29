@@ -83,13 +83,21 @@ class RCIHandler(object):
     def handle_rci_request(self, xml_text):
         """Return RCI response based on our tree structure"""
         global logger
-        root = ET.fromstring(xml_text)
+
+        try:
+            root = ET.fromstring(xml_text)
+        except Exception, e:
+            logger.warn("RCIHandler received malformed XML: %s" % str(e))
+            return_xml = '<error id="1" desc="%s" />' % str(e)
+            return_xml = self._rci_response(return_xml)
+            return return_xml
 
         return_xml = ""
         if not root.tag == "rci_request":
             logger.warn("RCIHandler received non-RCI request with root tag %s" % root.tag)
             return_xml = ('<error id="1" desc="Expected rci_request root'
-                          ' node but got something else />')
+                          ' node but got something else" />')
+
         for xml_child in root:
             logger.info("Received %s request" % xml_child.tag)
             logger.debug("Full request %s"%xml_text)
