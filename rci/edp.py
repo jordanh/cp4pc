@@ -366,7 +366,6 @@ class EDP:
 
         if self.msg_type != EDP_KEEPALIVE:
             logger.debug("received message type=0x%04X len=%u" % (self.msg_type, len(msg))) #TODO: decode type
-            #logger.debug("%s" % str(["%02X" % ord(x) for x in msg]) + "\t" + msg)
 
         if self.msg_type == EDP_PAYLOAD:
             if self.phase == self.PHASE_WAIT_VERS_OK:
@@ -438,9 +437,9 @@ class EDP:
             
             
             elif self.phase == self.PHASE_SECURING:
-                pass    
+                self.phase = self.PHASE_FACILITY    
             elif self.phase == self.PHASE_DISCOVERY:
-                pass    
+                self.phase = self.PHASE_FACILITY    
             elif self.phase == self.PHASE_FACILITY: 
                 if len(msg) < 5:
                     logger.error("bad message length %u" % len(msg))
