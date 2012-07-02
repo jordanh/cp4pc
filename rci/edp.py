@@ -14,6 +14,7 @@ import time
 import struct
 import string
 import logging
+import traceback
 import os #for checking path name to SSL certificate
 from errno import *
 
@@ -355,6 +356,7 @@ class EDP:
             self.rxdata = ""
             self.state = self.EDP_STATE_CLOSED
             logger.error("tick Exception: %s" % e)
+	    logger.error(traceback.format_exc())
             time.sleep(RECONNECT_TIME) # give a few seconds before trying to reconnect...
         return -EAGAIN
             
