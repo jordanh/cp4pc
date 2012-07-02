@@ -2062,6 +2062,12 @@ def open_com_thread():
         xbee_serial_port = None
         _com_mgmt_lock.acquire()
         try:
+            if not simulator_settings.settings.get("com_port") or not simulator_settings.settings.get("baud"):
+                #invalid serial port settings
+                if not ran_first_time:
+                    logger.error("Invalid serial port settings, COM port='%s', baud='%s'" % (simulator_settings.settings.get('com_port', 'No COM'), simulator_settings.settings.get('baud', 'no baud')))
+                    ran_first_time = True             
+                continue # will hit "finally" below
             try:
                 xbee_serial_port = serial.Serial(simulator_settings.settings["com_port"], simulator_settings.settings["baud"], rtscts = 1)
                 xbee_serial_port.writeTimeout = 1 # 1 second timeout for writes
