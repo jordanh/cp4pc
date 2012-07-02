@@ -111,10 +111,11 @@ class ADDP_Frame:
 
 
 class ADDP(threading.Thread):
-    def __init__(self, settings_file="settings.json"):
+    def __init__(self, settings_file="settings.json", defaults_file=None):
         threading.Thread.__init__(self)
         threading.Thread.setDaemon(self,True)
-        self.settings = simulator_settings.settings(settings_file)
+        
+        self.settings = simulator_settings.settings(settings_file, defaults_file)
         # create multicast sockets to listen for ADDP requests
         self.socks = {} # dict of {socket: ip}
         self.setup_socks()
