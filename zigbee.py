@@ -1389,7 +1389,7 @@ class XBee:
         finally:
             _global_lock.release()
             
-    def ddo_command(self, addr_extended, id, value = None, timeout=1, order=False, apply=True):
+    def ddo_command(self, addr_extended, id, param=None, timeout=1, order=False, apply=True):
         "Execute a Digi Device Objects AT command (only local address currently supported)"
         _global_lock.acquire(True)
         try:
@@ -1402,23 +1402,23 @@ class XBee:
             elif len(id) != 2:
                 raise Exception("ddo_command: id string must be two characters!")
             # convert integer values to a string
-            if isinstance(value, int) or isinstance(value, long):
-                value_str = ""
+            if isinstance(param, int) or isinstance(param, long):
+                param_str = ""
                 # convert to big endian string representation
-                while value > 0:
-                    value_str = chr(value & 0xFF) + value_str
-                    value /= 0x100
-                if value_str == "":
+                while param > 0:
+                    param_str = chr(param & 0xFF) + param_str
+                    param /= 0x100
+                if param_str == "":
                     # default to zero 
-                    value_str = chr(0)
-                value = value_str
-            elif value is None:
-                value = ""
+                    param_str = chr(0)
+                param = param_str
+            elif param is None:
+                param = ""
                         
             # create message to send.
             message = API_Message()
             if addr_extended is None:
-                message.api_data = Local_AT_Data(id, value)    
+                message.api_data = Local_AT_Data(id, param)
                 self.send(message)
             else:
                 if not isinstance(addr_extended, str):
@@ -1427,7 +1427,7 @@ class XBee:
                 if len(addr_extended) != 24 and len(addr_extended) != 26: # depends on "[" and "]"
                     #TTDO: should do better test of format...
                     raise Exception("ddo_command: addr_extended format is invalid!")
-                message.api_data = Remote_AT_Data(addr_extended, id, value)    
+                message.api_data = Remote_AT_Data(addr_extended, id, param)
                 self.send(message)
 
             # wait to receive response
