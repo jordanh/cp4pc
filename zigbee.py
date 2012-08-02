@@ -1069,9 +1069,9 @@ class XBee:
                 options = 0
                 if len(destination_address) > 4:
                     # flag APS encryption if in original options
-                    options = destination_address[4] & socket.XBS_TXADDROPT_APS_SEC
+                    options = destination_address[4] & socket.XBS_OPT_TX_APSSEC 
                     # flag packet acknowledged, if not disabled
-                    options |= destination_address[4] ^ socket.XBS_RXADDROPT_PKT_ACK
+                    options |= destination_address[4] ^ socket.XBS_OPT_RX_ACK 
                 full_source_address = ("", source_endpoint, destination_address[2], destination_address[3], options)
                 recv_tuple = (payload, full_source_address)
                 # add data to the message queue
