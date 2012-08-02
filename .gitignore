@@ -1,2 +1,11 @@
-
+# Ignore python leftovers
 *.pyc
+*.pyo
+
+# Ignore trash left behind by editors
+*~
+\#*\#
+
+# Ignore setuptools trash
+dist
+*.egg-info
