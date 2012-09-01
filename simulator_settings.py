@@ -124,3 +124,7 @@ settings.setdefault('company', 'Digi International')
 
 # If local_port is set, start a webserver for processing RCI and HTML requests locally
 #settings.setdefault('local_port', 8080)
+
+# Firmware version to report to iDigi.
+# aa.bb.cc.dd. Convert each section to hex, concatenate, convert to int.
+#settings.setdefault('firmware_version', 16777216) # 1.0.0.0 
