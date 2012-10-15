@@ -429,6 +429,14 @@ class EDP:
                     payload += struct.pack("!Q", settings['mac'])[-6:]
                     self.send_fac(EDP_FACILITY_CONN_CONTROL, payload)
                     
+                    if settings.get('firmware_version'):
+                        try:
+                            payload = struct.pack("!B", 0x00)
+                            payload += struct.pack("!BI", 0, settings['firmware_version'])
+                            self.send_fac(EDP_FACILITY_FIRMWARE, payload)
+                        except (TypeError, ValueError, struct.error), e:
+                            logger.error("bad firmware version: %s\terror: %s" % (settings['firmware_version'], str(e)))
+
                     # Announce RCI compression.
                     #self.send_fac(EDP_FACILITY_RCI, "\xB0\x01\x01\xFF") #ZLIB, reply
                     self.send_fac(EDP_FACILITY_RCI, "\xB0\x00\x00") # None, no reply
