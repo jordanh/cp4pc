@@ -424,7 +424,13 @@ class EDP:
                     # Connection report
                     payload = "\x05\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xFF\xFF"
                     # append IP
-                    IP_list = [int(num) for num in socket.gethostbyname(socket.gethostname()).split(".")]
+                    try:
+                      IP_list = [int(num) for num in socket.gethostbyname(socket.gethostname()).split(".")]
+                    except socket.gaierror:
+                      s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                      s.connect(("my.idigi.com", 3197))
+                      IP_list = s.getsockname()[0].split(".")
+                      del(s)
                     payload += struct.pack("!BBBBB", IP_list[0], IP_list[1], IP_list[2], IP_list[3], 0x01)
                     payload += struct.pack("!Q", settings['mac'])[-6:]
                     self.send_fac(EDP_FACILITY_CONN_CONTROL, payload)
