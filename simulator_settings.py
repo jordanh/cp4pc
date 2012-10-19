@@ -110,10 +110,10 @@ settings.setdefault('baud', 115200) #should the default be 9600?
 # base the device ID on the MAC address (can be overwritten after import)
 settings.setdefault('device_id', "00000000-00000000-%06XFF-FF%06X" % ((settings.get('mac', 0x000000000000) & 0xFFFFFF000000) >> (8*3), 
                                                                        settings.get('mac', 0x000000000000) & 0x0000000FFFFFF))
-settings.setdefault('idigi_server', 'developer.idigi.com')
+settings.setdefault('idigi_server', 'my.idigi.com')
 settings.setdefault('idigi_certs_file', 'idigi-ca-cert-public.crt')
 settings.setdefault('device_type', 'PC Gateway')
-#settings.setdefault('vendor_id', 0x12345678) #can set vendor ID in iDigi
+#settings.setdefault('vendor_id', 0x0) #can set vendor ID in iDigi
 
 # extra descriptions
 settings.setdefault('company', 'Digi International') 
