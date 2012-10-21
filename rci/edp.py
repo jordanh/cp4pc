@@ -428,7 +428,7 @@ class EDP:
                       IP_list = [int(num) for num in socket.gethostbyname(socket.gethostname()).split(".")]
                     except socket.gaierror:
                       s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                      s.connect(("my.idigi.com", 3197))
+                      s.connect(("my.idigi.com", self.PORT))
                       IP_list = s.getsockname()[0].split(".")
                       del(s)
                     payload += struct.pack("!BBBBB", IP_list[0], IP_list[1], IP_list[2], IP_list[3], 0x01)
