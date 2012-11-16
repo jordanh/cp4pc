@@ -5,7 +5,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public License,
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at http://mozilla.org/MPL/2.0/.
-# 
+#
 # Digi International Inc. 11001 Bren Road East, Minnetonka, MN 55343
 #
 
@@ -36,13 +36,13 @@ ADDP_CMD_SET_ADDR_REPLY = 0x0004# Reply to network config request
 ADDP_CMD_REBOOT = 0x0005# Request device reboot
 ADDP_CMD_REBOOT_REPLY = 0x0006# Reply to reboot request
 ADDP_CMD_SET_DHCP = 0x0007# Request to enable/disable DHCP
-ADDP_CMD_DHCP_REPLY = 0x0008# Reply to DHCP request   
-ADDP_CMD_SET_EDP = 0x000B# Configure remote management
-ADDP_CMD_EDP_REPLY = 0x000C# Configure remote management
-#ADDP_CMD_SET_WL = 0x000?# Request to configure wireless
-#ADDP_CMD_SET_WL_REPLY = 0x000?# Result of wireless operation
-#ADDP_CMD_COUNTRY_LIST_REQ = 0x000?# Wireless country codes list
-#ADDP_CMD_COUNTRY_LIST_REPLY = 0x000?# Result of country codes list
+ADDP_CMD_DHCP_REPLY = 0x0008# Reply to DHCP request
+ADDP_CMD_SET_WL = 0x0009# Request to configure wireless
+ADDP_CMD_SET_WL_REPLY = 0x000A# Result of wireless operation
+ADDP_CMD_COUNTRY_LIST_REQ = 0x000B# Wireless country codes list
+ADDP_CMD_COUNTRY_LIST_REPLY = 0x000C# Result of country codes list
+ADDP_CMD_SET_EDP = 0x000D# Configure remote management
+ADDP_CMD_EDP_REPLY = 0x000E# Configure remote management
 
 # ADDP OP Codes
 ADDP_OP_PAD = 0x00 # NOP, used to align fields (0-byte)
@@ -93,7 +93,7 @@ class ADDP_Frame:
     def __init__(self, cmd = ADDP_CMD_NULL, payload = ""):
         self.cmd = cmd
         self.payload = payload
-        
+
     def extract(self, buf):
         cookie, self.cmd, length = struct.unpack(">IHH", buf[:8])
         self.payload = buf[8:]
@@ -103,7 +103,7 @@ class ADDP_Frame:
         # make sure length is correct
         if length != len(buf) - 8: # 8 bytes in header
             raise Exception("Message length doesn't match.")
-        
+
     def export(self):
         buf = struct.pack(">IHH", ADDP_COOKIE, self.cmd, len(self.payload))
         buf += self.payload
@@ -111,7 +111,7 @@ class ADDP_Frame:
 
 
 class ADDP(threading.Thread):
-    
+
     def __init__(self):
         threading.Thread.__init__(self)
         threading.Thread.setDaemon(self,True)
@@ -119,7 +119,7 @@ class ADDP(threading.Thread):
         self.socks = {} # dict of {socket: ip}
         self.setup_socks()
         self.mac = struct.pack("!Q", settings['mac'])[2:]
-    
+
     def setup_socks(self):
         # populate list of sockets
         ip_list = [] #use this to remove sockets that are no longer active.
@@ -143,27 +143,27 @@ class ADDP(threading.Thread):
         while 1:
             try:
                 rlist = select.select(self.socks.keys(), [], [], 5)[0] # listen for incoming messages
-                
+
                 # check for new interface
                 self.setup_socks()
-                
+
                 if not rlist:
                     continue # go back to waiting for messages
-                
+
                 message, address = rlist[0].recvfrom(4096) #don't expect larger ADDP packets than this...
                 logger.debug("Received message from: ", address)
                 #print ["%02X"%ord(x) for x in message]
-                
+
                 # extract the header
                 frame = ADDP_Frame()
                 frame.extract(message)
-                
+
                 # get IP from self.socks and convert to integer
                 local_ip = 0
                 for num in (int(x, 10) for x in self.socks[rlist[0]].split('.')):
                     local_ip = local_ip * 0x100 + num
                 local_mac = self.mac #NOTE: MAC will not match interface (may update in the future).
-                
+
                 response = None
                 # parse the rest of the message based on the command type
                 if frame.cmd == ADDP_CMD_CONF_REQ:
@@ -175,17 +175,17 @@ class ADDP(threading.Thread):
                     pass
                 else:
                     raise Exception("Unknown frame cmd id=0x%04X" % frame.cmd)
-                
+
                 if response:
                     logger.debug("Sending response to: " + str(address))
                     #print ["%02X" % ord(x) for x in response.export()]
                     rlist[0].sendto(response.export(), address)
-                
+
             except Exception, e:
                 logger.error("Exception: %s"%e)
 
     def addp_conf_req(self, frame, address, local_ip, local_mac):
-        addp_ver = 0x0100 # ADDPv1, may be overwritten in command 
+        addp_ver = 0x0100 # ADDPv1, may be overwritten in command
         mac_addr = frame.payload[:6]
         # check if mac_addr matches ours or is equal to broadcast MAC
         if mac_addr != "\xff\xff\xff\xff\xff\xff" and mac_addr != local_mac:
@@ -199,14 +199,14 @@ class ADDP(threading.Thread):
             index += 2
             if op_code == ADDP_OP_VERSION:
                 addp_ver, = struct.unpack(">H", frame.payload[index: index + 2])
-                index += 2 
+                index += 2
             else:
                 # unsupported OP code
                 index += length
-        
+
         # Create response
         response = ADDP_Frame(ADDP_CMD_CONF_REPLY)
-        
+
         # add MAC address
         response.payload += struct.pack(">BB", ADDP_OP_MAC, 6)
         response.payload += self.mac
@@ -228,41 +228,41 @@ class ADDP(threading.Thread):
         device_type = settings.get('device_type')
         response.payload += struct.pack(">BB", ADDP_OP_HWNAME, len(device_type))
         response.payload += device_type
-        
-        if addp_ver == 0x0100:        
+
+        if addp_ver == 0x0100:
             # add version
             # get the time of when the program was started
             (year, mon, mday, hour, min, sec, wday, yday, isdst) = time.gmtime(time.time() - time.clock())
             version = "Version %s %d/%02d/%d" % (settings.get('version', '0.0.0'), mon, mday, year)
             response.payload += struct.pack(">BB", ADDP_OP_FEPREV, len(version))
             response.payload += version
-        
+
         return response
-    
+
     def addp_set_edp(self, frame, address, local_ip, local_mac):
         edp_enabled, edp_length = struct.unpack(">BB", frame.payload[:2])
-        edp_url = frame.payload[2:edp_length+2] 
+        edp_url = frame.payload[2:edp_length+2]
         logger.warning("Ignoring request to set EDP URL = " + edp_url)
         mac_addr = frame.payload[edp_length+2:edp_length+8]
-        
+
         # check if mac_addr matches ours or is equal to broadcast MAC
         if mac_addr != "\xff\xff\xff\xff\xff\xff" and mac_addr != local_mac:
             logger.debug("Message has wrong address.")
             return None
-        
-        logger.info("Received 'Set EDP' request from: %s" % str(address))        
+
+        logger.info("Received 'Set EDP' request from: %s" % str(address))
         # Create response
         response = ADDP_Frame(ADDP_CMD_EDP_REPLY)
         # add MAC address
         response.payload += struct.pack(">BB", ADDP_OP_MAC, 6)
         response.payload += local_mac
         # add result of success
-        response.payload += struct.pack(">BBB", ADDP_OP_RESULT, 1, ADDP_SUCCESS)    
+        response.payload += struct.pack(">BBB", ADDP_OP_RESULT, 1, ADDP_SUCCESS)
         # add success message?
-        
+
         #ADDP_OP_ERRCODE
         #ADDP_OP_MSG
-        
+
         return response
 
-            
+
