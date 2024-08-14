@@ -25,7 +25,7 @@ setup(
     ],
     # don't include webob, just mark as dependency
     install_requires=[
-        'webob==1.2b3',
+        'webob==1.8.8',
     ],
     license="MPL 2.0",
     url="https://github.com/jordanh/cp4pc",
